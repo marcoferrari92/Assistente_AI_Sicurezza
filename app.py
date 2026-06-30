@@ -6,7 +6,6 @@ from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
 from PIL import Image, ImageDraw
 from streamlit_image_coordinates import streamlit_image_coordinates
-from streamlit_drawable_canvas import st_canvas
 
 
 
