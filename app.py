@@ -677,8 +677,11 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
     prompt = f"""
     Sei l'assistente di un ispettore sulla sicurezza nei cantieri e stai ascoltando il suo resoconto: "{transcript.text}".
-    Estrai le informazioni in modo formale e tecnico.
-    Se la trascrizione è assente o inutilizzabile, restituisci il campo vuoto.
+    Estrai le informazioni in modo formale e tecnico per il report di fine ispezione.
+
+    REGOLE
+    1. Se la trascrizione è assente o inutilizzabile, restituisci il campo vuoto.
+    2. Non scrivere frasi introduttive quali: "il resconto dell'ispettore...", "L'ispettore ha indicato..."
     """
     
     resp = client.chat.completions.create(
