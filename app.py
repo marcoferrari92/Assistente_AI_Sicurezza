@@ -108,11 +108,18 @@ def set_global_styles():
     st.markdown(
         """
         <style>
-        /* CSS globale che viene iniettato una sola volta */
-        img {
+        /* CSS per immagini standard e dentro expander */
+        [data-testid="stExpander"] img,
+        [data-testid="stImage"] img {
             max-width: 100% !important;
             height: auto !important;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
+        
+        /* Forza il contenitore dell'immagine a rispettare la larghezza del padre */
+        [data-testid="stExpander"] [data-testid="stImage"],
         [data-testid="stImage"] {
             width: 100% !important;
         }
@@ -814,7 +821,8 @@ if utente_connesso:
                         # Nota: dobbiamo passare l'immagine PIL (img_display)
                         click_data = streamlit_image_coordinates(
                             img_display, 
-                            key=f"img_click_{idx}"
+                            key=f"img_click_{idx}",
+                            width=350
                         )
 
                         # 3. Logica per aggiungere il punto se l'utente clicca
