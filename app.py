@@ -670,20 +670,14 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
     audio_file.name = "audio.wav"
     transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
     
-    # Dizionario delle descrizioni tecniche per guidare l'AI
-    istruzioni = {
-        "attività": "Descrivi le attività lavorative in corso nel cantiere con terminologia tecnica (D.Lgs 81/08).",
-        "coordinamento": "Descrivi le azioni di coordinamento e vigilanza svolte.",
-        "personale": "Elenca le figure professionali presenti, il numero di addetti e le eventuali ditte subappaltatrici.",
-        "verbali": "Riassumi le prescrizioni, le sospensioni o le osservazioni tecniche fatte durante il sopralluogo."
-    }
-    
+    #  1. Attività: Descrizione delle attività lavorative in corso nel cantiere, usa una terminologia tecnica (D.Lgs 81/08).
+    # 2. Coordinamento: Descrizione delle azioni di coordinamento e vigilanza svolte dall'ispettore.
+    # 3. Personale: Elenco delle figure professionali presenti, indicazioni sull'autorizzazione dei lavoratori di accedere al cantiere ed elenco delle eventuali ditte subappaltatrici presenti.
+    # 4. Verbale: Elenco delle prescrizioni, delle sospensioni o di altri verbali rilasciati durante il sopralluogo.
+
     prompt = f"""
-    Sei l'assistente di un ispettore sulla sicurezza nei cantieri. 
-    Compito: {istruzioni.get(nome_campo, "Trascrivi le indicazioni dell'ispettore e formatta il testo in modo professionale e formale.")}
-    Input: "{transcript.text}"
-    
-    Restituisci solo il testo formattato e per il campo '{nome_campo}'.
+    Sei l'assistente di un ispettore sulla sicurezza nei cantieri e stai ascoltando il suo resoconto: "{transcript.text}".
+    Estrai le informazioni in modo formale e tecnico.
     Se la trascrizione è assente o inutilizzabile, restituisci il campo vuoto.
     """
     
