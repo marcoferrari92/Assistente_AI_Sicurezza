@@ -107,7 +107,7 @@ def invia_report_via_email_graph(doc_bytes, nome_file, user_email):
 
 
 def set_bg_color(color, status_text=None):
-    # CSS per cambiare lo sfondo e creare il banner fisso
+    # CSS per cambiare lo sfondo, creare il banner fisso e limitare la larghezza immagini
     banner_html = ""
     if status_text:
         banner_html = f"""
@@ -121,6 +121,15 @@ def set_bg_color(color, status_text=None):
         f"""
         <style>
         .stApp {{ background-color: {color} !important; }}
+        
+        /* FIX MOBILE: Impedisce alle immagini di esplodere */
+        img {{
+            max-width: 100% !important;
+            height: auto !important;
+        }}
+        [data-testid="stImage"] {{
+            width: 100% !important;
+        }}
         </style>
         {banner_html}
         """,
