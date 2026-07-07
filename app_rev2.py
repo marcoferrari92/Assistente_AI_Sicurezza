@@ -1,43 +1,13 @@
 import base64
 import json
 import io
-import time
 import streamlit as st
 from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
 from PIL import Image, ImageDraw
-from docxtpl import DocxTemplate, InlineImage
-from docx import Document
-from docx.shared import Inches, Pt
-from docx.oxml.shared import qn
-from docx.oxml import OxmlElement
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-
 from streamlit_image_coordinates import streamlit_image_coordinates
 
 
-
-def set_bg_color(color, status_text=None):
-    # CSS per cambiare lo sfondo e creare il banner fisso
-    banner_html = ""
-    if status_text:
-        banner_html = f"""
-        <div style="position: fixed; top: 0; left: 0; width: 100%; background-color: #333; 
-                    color: white; text-align: center; padding: 10px; z-index: 9999; font-weight: bold;">
-            {status_text}
-        </div>
-        """
-    
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{ background-color: {color} !important; }}
-        </style>
-        {banner_html}
-        """,
-        unsafe_allow_html=True
-    )
 
 # --- 4. CONTROLLO ACCESSO MULTI-UTENTE (IMPRENDO MORPHEUS) ---
 def login():
@@ -276,270 +246,7 @@ def integra_sicurezza_cantiere(audio_bytes, image_file, verbale_attuale):
 
 
 
-def remove_internal_borders(cell, top=False, bottom=False):
-    tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
-    tcBorders = tcPr.first_child_found_in("w:tcBorders")
-    if tcBorders is None:
-        tcBorders = OxmlElement('w:tcBorders')
-        tcPr.append(tcBorders)
-    
-    if top:
-        top_el = OxmlElement('w:top')
-        top_el.set(qn('w:val'), 'nil')
-        tcBorders.append(top_el)
-    if bottom:
-        bottom_el = OxmlElement('w:bottom')
-        bottom_el.set(qn('w:val'), 'nil')
-        tcBorders.append(bottom_el)
-
-
-
-
-def genera_report_finale(storico):
-
-
-    doc = Document("Template.docx")
-
-    font_name = st.session_state.settings.get("font", "Arial")
-    font_size = st.session_state.settings.get("size", 9)
-
-    # --- FUNZIONE DI SOSTITUZIONE ROBUSTA ---
-    def replace_text_in_doc(doc, key, value, font_name, font_size):
-
-        placeholder = f"{{{{{key}}}}}"
-
-        # Funzione interna per applicare lo stile al paragrafo
-        def apply_style_to_para(para):
-            for run in para.runs:
-                run.font.name = font_name
-                run.font.size = Pt(font_size)
-
-        # Elaborazione paragrafi
-        for para in doc.paragraphs:
-            if placeholder in para.text:
-                para.text = para.text.replace(placeholder, value)
-                apply_style_to_para(para)
-                
-        # Elaborazione tabelle
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        if placeholder in para.text:
-                            para.text = para.text.replace(placeholder, value)
-                            apply_style_to_para(para)
-
-    # Eseguiamo la sostituzione per ogni chiave
-    if "anagrafica" in st.session_state:
-        for key, value in st.session_state.anagrafica.items():
-            replace_text_in_doc(doc, key, value, font_name, font_size)
-    
-    # 1. Trova il paragrafo segnaposto
-    target_paragraph = None
-    for p in doc.paragraphs:
-        if "###TABELLA_ANALISI###" in p.text:
-            target_paragraph = p
-            break
-            
-    if target_paragraph:
-        p_element = target_paragraph._element
-        
-        # 2. Crea la tabella
-        table = doc.add_table(rows=0, cols=2)
-        table.style = 'Table Grid'
-        
-        # Intestazione
-        hdr = table.add_row().cells
-        hdr[0].text = "ANALISI TECNICHE"
-
-        for cell in hdr:
-            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    run.font.name = font_name
-                    run.font.size = Pt(font_size)
-            tc = cell._tc
-            tcPr = tc.get_or_add_tcPr()
-            shd = OxmlElement('w:shd')
-            shd.set(qn('w:val'), 'clear')
-            shd.set(qn('w:fill'), 'D9D9D9') # Inserisci qui il codice esadecimale del colore
-            tcPr.append(shd)
-
-    
-        # 3. Ciclo sullo storico
-        for idx, data in enumerate(storico):
-            # Recupera i punti aggiornati (inclusi quelli manipolati dall'utente)
-            punti_totali = [p for img_data in data["report"].get("analisi_per_immagine", []) for p in img_data['punti_critici']]
-            
-            # Riga titolo con riassunto specifico
-            riassunto_specifico = data["report"].get("riassunto_generale", "Analisi Tecnica")
-            
-            # Riga titolo
-            row_t = table.add_row()
-            for cell in row_t.cells:
-                # 1. Imposta l'allineamento verticale
-                cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    
-                # 2. Rimuovi margini interni del paragrafo che potrebbero dare l'illusione di decentramento
-                for para in cell.paragraphs:
-                    para.paragraph_format.space_before = Pt(0)
-                    para.paragraph_format.space_after = Pt(0)
-            
-            # Formattazione FOTOGRAFIA X
-            paragrafo_foto = row_t.cells[0].add_paragraph(f"FOTOGRAFIA {idx + 1}")
-            run_foto = paragrafo_foto.runs[0]
-            run_foto.font.name = font_name
-            run_foto.font.size = Pt(font_size)
-            run_foto.bold = True
-            
-            # Formattazione RIASSUNTO
-            paragrafo_t = row_t.cells[1].add_paragraph(riassunto_specifico)
-            run_t = paragrafo_t.runs[0]
-            run_t.font.name = font_name
-            run_t.font.size = Pt(font_size)
-            run_t.bold = True
-            
-            
-            # Riga contenuto
-            row_c = table.add_row()
-            
-            # --- DISEGNO IMMAGINE CON TAG ---
-            img_taggata = disegna_punti_critici(data["bytes"], punti_totali, abilita_marker=True)
-            img_stream = io.BytesIO()
-            img_taggata.save(img_stream, format='JPEG', quality=95)
-            img_stream.seek(0)
-            
-            # Inserimento immagine
-            row_c.cells[0].add_paragraph().add_run().add_picture(img_stream, width=Inches(2.0))
-
-            # Testo verbale
-            testo = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
-            paragrafo = row_c.cells[1].add_paragraph(testo)
-            run = paragrafo.runs[0]
-            run.font.name = font_name
-            run.font.size = Pt(font_size)
-            paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-            for cell in row_t.cells:
-                remove_internal_borders(cell, bottom=True) # Rimuove la riga tra Titolo e Contenuto
-
-            for cell in row_c.cells:
-                remove_internal_borders(cell, top=True) # Rimuove la riga tra Titolo e Contenuto
-                
-            
-            # --- PUNTI CRITICI: NUMERAZIONE E SPAZIATURA ---
-            for i, p in enumerate(punti_totali, start=1):
-
-                key_punto = f"edit_punto_{idx}_{i}"
-                testo_da_scrivere = st.session_state.edits.get(key_punto, p.get('commento', ''))
-                testo_finale = f"{i}. {testo_da_scrivere}"
-                
-                # Creiamo il paragrafo
-                p_punto = row_c.cells[1].add_paragraph(testo_finale)
-                
-                # 1. Rientro (simulazione TAB)
-                p_punto.paragraph_format.left_indent = Inches(0.2)
-                
-                # 2. Spaziatura tra i punti
-                p_punto.paragraph_format.space_before = Pt(font_size) 
-                
-                # 3. Spazio extra per il primo elemento
-                if i == 1:
-                    p_punto.paragraph_format.space_before = Pt(24)
-                
-                # Applichiamo font e dimensione
-                run_p = p_punto.runs[0]
-                run_p.font.name = font_name
-                run_p.font.size = Pt(font_size)
-            
-        # 4. Spostamento XML e pulizia
-        table_element = table._tbl
-        p_element.addprevious(table_element)
-        p_element.getparent().remove(p_element)
-
-    bio = io.BytesIO()
-    doc.save(bio)
-    bio.seek(0)
-    return bio.getvalue()
-
-
-
-def get_img_bytes(pil_img):
-    img_byte_arr = io.BytesIO()
-    # Salviamo in formato JPEG con alta qualità
-    pil_img.save(img_byte_arr, format='JPEG', quality=95)
-    return img_byte_arr.getvalue()
-
-
-def trascrivi_in_campo(campo_anagrafica, audio_bytes):
-    """Trascrive l'audio e aggiorna il valore nel session_state."""
-    client = OpenAI(api_key=st.secrets["openai_key"])
-    audio_file = io.BytesIO(audio_bytes)
-    audio_file.name = "audio.wav"
-    
-    # Trascrizione
-    transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-    
-    # Aggiornamento dello stato (concatenazione)
-    testo_attuale = st.session_state.anagrafica.get(campo_anagrafica, "")
-    if testo_attuale:
-        st.session_state.anagrafica[campo_anagrafica] = testo_attuale + "\n" + transcript.text
-    else:
-        st.session_state.anagrafica[campo_anagrafica] = transcript.text
-
-def campo_con_audio(label, key_campo, help_text="", tipo="area"):
-    c1, c2 = st.columns([0.85, 0.15])
-    
-    with c1:
-        if tipo == "area":
-            valore = st.text_area(label, value=st.session_state.anagrafica.get(key_campo, ""), help=help_text)
-        else:
-            valore = st.text_input(label, value=st.session_state.anagrafica.get(key_campo, ""), help=help_text)
-        st.session_state.anagrafica[key_campo] = valore
-        
-    with c2:
-        st.write("###")
-        # Aggiungiamo un hash per distinguere l'audio
-        audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key=f"rec_{key_campo}")
-        
-        if audio:
-            # Creiamo una chiave unica per questo specifico audio basata sul contenuto
-            audio_id = hash(str(audio['bytes']))
-            
-            # Controlliamo se abbiamo già elaborato questo esatto audio
-            if st.session_state.get(f"last_audio_{key_campo}") != audio_id:
-                with st.spinner("Trascrizione..."):
-                    trascrivi_in_campo(key_campo, audio['bytes'])
-                    # Segniamo l'audio come "già elaborato"
-                    st.session_state[f"last_audio_{key_campo}"] = audio_id
-                    st.rerun()
-
-
-
-# APP PRINCIPALE
-
-
 utente_connesso = login()
-
-if "app_state" not in st.session_state:
-    status_msg = None
-    color = "white"
-    st.session_state.app_state = "ready"
-if st.session_state.app_state == "ready":
-    set_bg_color("#ffffff") 
-if st.session_state.app_state == "working":
-    color = "#CCBD31"
-    status_msg = "⚠️ ANALISI IN CORSO - NON INTERAGIRE"
-elif st.session_state.app_state == "done":
-    color = "#89D889"
-    status_msg = "✅ ANALISI COMPLETATA CON SUCCESSO"
-else:
-    status_msg = None
-    color = "white"
-
-
-set_bg_color(color, status_msg)
 
 # --- 3. CONTENUTO PRINCIPALE ---
 if utente_connesso:
@@ -549,58 +256,38 @@ if utente_connesso:
 
     status_placeholder = st.empty()
 
-
-    # IMPOSTAZIONI 
     st.sidebar.header("⚙️ Impostazioni")
-
-    # Mostra marker
     mostra_marker = st.sidebar.toggle("Mostra Marker sulla foto", value=True)
-
-    # Scelta font
-    font_s = st.sidebar.selectbox("Font", ["Arial", "Calibri", "Times New Roman"], index=0)
-    
-    # Scelta dimensione
-    size_s = st.sidebar.slider("Dimensione Font (pt)", min_value=7, max_value=16, value=9)
-    
-    # Salviamo nello stato
-    st.session_state.settings = {
-        "font": font_s,
-        "size": size_s
-    }
 
     # Inizializzazione variabili di stato
     if "storico_report" not in st.session_state: st.session_state.storico_report = []
     if "edits" not in st.session_state: st.session_state.edits = {}
 
-    tab1, tab2, tab3 = st.tabs(["🚀 Caricamenti", "📋 Analisi Tecniche", "👤 Report"])
+    tab1, tab2 = st.tabs(["🚀 Caricamento e Registrazioni", "📋 Report"])
 
     # --- TAB 1: ACQUISIZIONE E ANALISI ---
     with tab1:
         st.subheader("📸 Carica e descrivi")
         file = st.file_uploader("Carica una foto", type=["jpg", "png", "jpeg"], key="uploader_live")
+        
             
         audio = mic_recorder(
-            start_prompt="🟢 AVVIA REGISTRAZIONE", 
-            stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI", 
+            start_prompt="⏺️ AVVIA REGISTRAZIONE", 
+            stop_prompt="⏹️ ANALIZZA", 
             key='recorder_live'
         )
 
         # Visualizzazione immagine di guida
         if file is not None:
             st.image(file, caption="Immagine di riferimento per il sopralluogo", use_container_width=True)
-            set_bg_color("#ffffff") 
 
         if audio and file:
-
             audio_hash = hash(str(audio['bytes']))
             
             # Evita esecuzioni multiple
             if st.session_state.get("last_audio_hash") != audio_hash:
-
                 with st.spinner("Analisi in corso..."):
                     # Esecuzione Analisi
-                    set_bg_color("#f0ff99")
-                    st.session_state.app_state = "working"
                     report, testo = analizza_sicurezza_cantiere(audio['bytes'], file)
                     
                     # Aggiornamento storico
@@ -616,9 +303,7 @@ if utente_connesso:
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
-                    st.session_state.app_state = "done"
-                    set_bg_color("#b3ff99")
-                    time.sleep(2)
+                    st.success("✅ Nuova analisi aggiunta!")
                     st.rerun()
 
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE (REWORK/INTEGRAZIONE) ---
@@ -778,60 +463,7 @@ if utente_connesso:
                                             # Aggiorniamo lo storico con il report modificato
                                             st.session_state.storico_report[idx]['report'] = report
                                             st.rerun()
-
         else:
             st.info("Esegui un'analisi per vedere i risultati qui.")
 
-    
-    with tab3:
-        if "anagrafica" not in st.session_state:
-            st.session_state.anagrafica = {}
 
-        with st.expander("👤 Mandanti e Mandatari"):
-            campo_con_audio("Mandataria/e (elenco)", "mandataria", "Inserisci un nome per riga")
-            campo_con_audio("Mandante/i (elenco)", "mandante", "Inserisci un nome per riga")
-            
-
-        with st.expander("🏢 Committente"):
-            campo_con_audio("Ragione Sociale Committente", "committente", tipo="input")
-            campo_con_audio("Indirizzo", "indirizzo", tipo="input")
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                st.session_state.anagrafica["città"] = st.text_input("Città", value=st.session_state.anagrafica.get("città", ""))
-            with c2:
-                st.session_state.anagrafica["provincia"] = st.text_input("Provincia", value=st.session_state.anagrafica.get("provincia", ""))
-
-        with st.expander("📝 Commessa e Oggetto"):
-            campo_con_audio("Commessa", "commessa", "Descrizione dettagliata commessa")
-            campo_con_audio("Oggetto dei lavori", "oggetto", "Descrizione dettagliata oggetto")
-
-        with st.expander("🛠️ Attività e Personale"):
-            campo_con_audio("Attività di Cantiere", "attività")
-            campo_con_audio("Attività di Coordinamento", "coordinamento")
-            campo_con_audio("Personale Presente", "personale")
-            campo_con_audio("Verbali di Prescrizione/Sospensione", "verbali")
-
-        with st.expander("📎 Allegati"):
-            uploaded_files = st.file_uploader("Carica allegati", accept_multiple_files=True, type=['pdf', 'jpg', 'png', 'txt'])
-            if uploaded_files:
-                nomi_file = ", ".join([f.name for f in uploaded_files])
-                st.session_state.anagrafica["allegati"] = f"Elenco allegati: {nomi_file}"
-            else:
-                st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
-
-
-        # --- AGGIUNTA SOTTO A TUTTO ---
-        st.divider() # Linea di separazione visiva
-        st.subheader("📥 Esportazione Report")
-        
-        if st.button("📄 Genera Report Finale"):
-            with st.spinner("Generazione documento in corso..."):
-                doc_bytes = genera_report_finale(st.session_state.storico_report)
-                
-                st.download_button(
-                    label="✅ Scarica il report",
-                    data=doc_bytes,
-                    file_name="Report_Sicurezza.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )

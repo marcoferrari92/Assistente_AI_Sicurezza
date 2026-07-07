@@ -472,7 +472,7 @@ def get_img_bytes(pil_img):
     return img_byte_arr.getvalue()
 
 
-def trascrivi_in_campo(campo_anagrafica, audio_bytes):
+def trascrivi_in_campo(key_stato, campo_anagrafica, audio_bytes):
     """Trascrive l'audio e aggiorna il valore nel session_state."""
     client = OpenAI(api_key=st.secrets["openai_key"])
     audio_file = io.BytesIO(audio_bytes)
@@ -481,39 +481,26 @@ def trascrivi_in_campo(campo_anagrafica, audio_bytes):
     # Trascrizione
     transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
     
-    # Aggiornamento dello stato (concatenazione)
-    testo_attuale = st.session_state.anagrafica.get(campo_anagrafica, "")
-    if testo_attuale:
-        st.session_state.anagrafica[campo_anagrafica] = testo_attuale + "\n" + transcript.text
-    else:
-        st.session_state.anagrafica[campo_anagrafica] = transcript.text
+    # Aggiornamento automatico dello stato
+    st.session_state.anagrafica[campo_anagrafica] = transcript.text
 
-def campo_con_audio(label, key_campo, help_text="", tipo="area"):
+
+def campo_con_audio(label, key_campo, help_text=""):
+    """Crea una text_area affiancata da un tasto di registrazione."""
     c1, c2 = st.columns([0.85, 0.15])
     
     with c1:
-        if tipo == "area":
-            valore = st.text_area(label, value=st.session_state.anagrafica.get(key_campo, ""), help=help_text)
-        else:
-            valore = st.text_input(label, value=st.session_state.anagrafica.get(key_campo, ""), help=help_text)
+        valore = st.text_area(label, value=st.session_state.anagrafica.get(key_campo, ""), help=help_text)
         st.session_state.anagrafica[key_campo] = valore
         
     with c2:
-        st.write("###")
-        # Aggiungiamo un hash per distinguere l'audio
+        st.write("###") # Allineamento verticale
+        # Usiamo il microfono
         audio = mic_recorder(start_prompt="🎤", stop_prompt="⏹️", key=f"rec_{key_campo}")
-        
         if audio:
-            # Creiamo una chiave unica per questo specifico audio basata sul contenuto
-            audio_id = hash(str(audio['bytes']))
-            
-            # Controlliamo se abbiamo già elaborato questo esatto audio
-            if st.session_state.get(f"last_audio_{key_campo}") != audio_id:
-                with st.spinner("Trascrizione..."):
-                    trascrivi_in_campo(key_campo, audio['bytes'])
-                    # Segniamo l'audio come "già elaborato"
-                    st.session_state[f"last_audio_{key_campo}"] = audio_id
-                    st.rerun()
+            with st.spinner("Trascrizione..."):
+                trascrivi_in_campo("anagrafica", key_campo, audio['bytes'])
+                st.rerun() # Ricarica per mostrare il testo aggiornato
 
 
 
@@ -521,15 +508,13 @@ def campo_con_audio(label, key_campo, help_text="", tipo="area"):
 
 
 utente_connesso = login()
-
 if "app_state" not in st.session_state:
     status_msg = None
     color = "white"
-    st.session_state.app_state = "ready"
 if st.session_state.app_state == "ready":
     set_bg_color("#ffffff") 
 if st.session_state.app_state == "working":
-    color = "#CCBD31"
+    color = "#F4E23A"
     status_msg = "⚠️ ANALISI IN CORSO - NON INTERAGIRE"
 elif st.session_state.app_state == "done":
     color = "#89D889"
@@ -784,36 +769,92 @@ if utente_connesso:
 
     
     with tab3:
-        if "anagrafica" not in st.session_state:
-            st.session_state.anagrafica = {}
-
         with st.expander("👤 Mandanti e Mandatari"):
-            campo_con_audio("Mandataria/e (elenco)", "mandataria", "Inserisci un nome per riga")
-            campo_con_audio("Mandante/i (elenco)", "mandante", "Inserisci un nome per riga")
+
+            # Inizializzazione dati
+            if "anagrafica" not in st.session_state:
+                st.session_state.anagrafica = {
+                    "mandataria": "", "mandante": ""
+                }
+            
+            # Per mandataria e mandante usiamo text_area per permettere elenchi multiriga
+            st.session_state.anagrafica["mandataria"] = st.text_area(
+                "Mandataria/e (elenco)", 
+                value=st.session_state.anagrafica["mandataria"],
+                help="Inserisci un nome per riga"
+            )
+            
+            st.session_state.anagrafica["mandante"] = st.text_area(
+                "Mandante/i (elenco)", 
+                value=st.session_state.anagrafica["mandante"],
+                help="Inserisci un nome per riga"
+            )
             
 
         with st.expander("🏢 Committente"):
-            campo_con_audio("Ragione Sociale Committente", "committente", tipo="input")
-            campo_con_audio("Indirizzo", "indirizzo", tipo="input")
+            # Assicurati che le chiavi esistano nello stato
+            campi_committente = ["committente", "indirizzo", "città", "provincia"]
+            for campo in campi_committente:
+                if campo not in st.session_state.anagrafica:
+                    st.session_state.anagrafica[campo] = ""
             
-            c1, c2 = st.columns(2)
-            with c1:
-                st.session_state.anagrafica["città"] = st.text_input("Città", value=st.session_state.anagrafica.get("città", ""))
-            with c2:
-                st.session_state.anagrafica["provincia"] = st.text_input("Provincia", value=st.session_state.anagrafica.get("provincia", ""))
+            st.session_state.anagrafica["committente"] = st.text_input(
+                "Ragione Sociale Committente", 
+                value=st.session_state.anagrafica["committente"]
+            )
+            
+            st.session_state.anagrafica["indirizzo"] = st.text_input(
+                "Indirizzo", 
+                value=st.session_state.anagrafica["indirizzo"]
+            )
+            
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                st.session_state.anagrafica["città"] = st.text_input(
+                    "Città", 
+                    value=st.session_state.anagrafica["città"]
+                )
+            with col_c2:
+                st.session_state.anagrafica["provincia"] = st.text_input(
+                    "Provincia", 
+                    value=st.session_state.anagrafica["provincia"]
+                )
 
         with st.expander("📝 Commessa e Oggetto"):
-            campo_con_audio("Commessa", "commessa", "Descrizione dettagliata commessa")
-            campo_con_audio("Oggetto dei lavori", "oggetto", "Descrizione dettagliata oggetto")
+            # Assicurati che le chiavi esistano
+            if "commessa" not in st.session_state.anagrafica:
+                st.session_state.anagrafica["commessa"] = ""
+            if "oggetto" not in st.session_state.anagrafica:
+                st.session_state.anagrafica["oggetto"] = ""
+            
+            st.session_state.anagrafica["commessa"] = st.text_area(
+                "Commessa", 
+                value=st.session_state.anagrafica["commessa"],
+                help="Inserisci una descrizione dettagliata della commessa"
+            )
+            
+            st.session_state.anagrafica["oggetto"] = st.text_area(
+                "Oggetto dei lavori", 
+                value=st.session_state.anagrafica["oggetto"],
+                help="Inserisci una descrizione dettagliata dell'oggetto"
+            )
+
 
         with st.expander("🛠️ Attività e Personale"):
-            campo_con_audio("Attività di Cantiere", "attività")
-            campo_con_audio("Attività di Coordinamento", "coordinamento")
-            campo_con_audio("Personale Presente", "personale")
-            campo_con_audio("Verbali di Prescrizione/Sospensione", "verbali")
+            # Inizializza le chiavi nello stato
+            for k in ["attività", "coordinamento", "personale", "verbali"]:
+                if k not in st.session_state.anagrafica: st.session_state.anagrafica[k] = ""
+            
+            st.session_state.anagrafica["attività"] = st.text_area("Attività di Cantiere", st.session_state.anagrafica["attività"])
+            st.session_state.anagrafica["coordinamento"] = st.text_area("Attività di Coordinamento", st.session_state.anagrafica["coordinamento"])
+            st.session_state.anagrafica["personale"] = st.text_area("Personale Presente", st.session_state.anagrafica["personale"])
+            st.session_state.anagrafica["verbali"] = st.text_area("Verbali di Prescrizione/Sospensione", st.session_state.anagrafica["verbali"])
 
         with st.expander("📎 Allegati"):
+            # Caricamento file
             uploaded_files = st.file_uploader("Carica allegati", accept_multiple_files=True, type=['pdf', 'jpg', 'png', 'txt'])
+            
+            # Formattazione nomi file per il template
             if uploaded_files:
                 nomi_file = ", ".join([f.name for f in uploaded_files])
                 st.session_state.anagrafica["allegati"] = f"Elenco allegati: {nomi_file}"
