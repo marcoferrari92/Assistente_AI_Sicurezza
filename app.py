@@ -18,6 +18,94 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 
 
 
+def ottieni_account_exchange(user_email):
+    from O365 import Account
+    
+
+    config = st.secrets["microsoft_exchange"]
+    if not config:
+        st.error(f"⚠️ Configurazione non trovata per il dominio: {dominio}")
+        return None
+        
+    credentials = (config["client_id"], config["client_secret"])
+    tenant_id = config["tenant_id"]
+    
+    account = Account(credentials, auth_flow_type='credentials', tenant_id=tenant_id)
+    
+    try:
+        if account.authenticate():
+            return account
+        return None
+    except Exception as e:
+        st.error(f"❌ Errore autenticazione Azure ({dominio}): {e}")
+        return None
+    
+
+def invia_report_via_email_graph(doc_bytes, nome_file, user_email):
+    import requests
+    import base64
+
+    try:
+        # 1. Recupero credenziali
+        config = st.secrets["microsoft_exchange"]
+        client_id = config["client_id"]
+        client_secret = config["client_secret"]
+        tenant_id = config["tenant_id"]
+
+        # 2. Ottenimento Token
+        url_oauth = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+        payload_oauth = {
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "https://graph.microsoft.com/.default"
+        }
+        risposta_oauth = requests.post(url_oauth, data=payload_oauth)
+        if risposta_oauth.status_code != 200:
+            return False, f"Errore Auth: {risposta_oauth.text}"
+        
+        token = risposta_oauth.json().get("access_token")
+
+        # 3. Preparazione allegato in Base64 (come nel tuo codice collaudato)
+        encoded_content = base64.b64encode(doc_bytes).decode('utf-8')
+        
+        email_payload = {
+            "message": {
+                "subject": f"Report Sicurezza Cantiere - {time.strftime('%Y-%m-%d %H:%M')}",
+                "body": {
+                    "contentType": "HTML",
+                    "content": "<p>In allegato il report di sicurezza generato.</p>"
+                },
+                "toRecipients": [{"emailAddress": {"address": user_email}}],
+                "attachments": [
+                    {
+                        "@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": nome_file,
+                        "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "contentBytes": encoded_content
+                    }
+                ]
+            },
+            "saveToSentItems": "true"
+        }
+
+        # 4. Invio
+        url_api = f"https://graph.microsoft.com/v1.0/users/{user_email}/sendMail"
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        
+        risposta = requests.post(url_api, json=email_payload, headers=headers)
+
+        if risposta.status_code == 202:
+            return True, "Email inviata con successo!"
+        else:
+            return False, f"Errore API ({risposta.status_code}): {risposta.text}"
+
+    except Exception as e:
+        return False, str(e)
+    
+
+
+
 def set_bg_color(color, status_text=None):
     # CSS per cambiare lo sfondo e creare il banner fisso
     banner_html = ""
@@ -517,6 +605,72 @@ def campo_con_audio(label, key_campo, help_text="", tipo="area"):
 
 
 
+def elabora_anagrafica_ai(audio_bytes):
+    client = OpenAI(api_key=st.secrets["openai_key"])
+    audio_file = io.BytesIO(audio_bytes)
+    audio_file.name = "audio.wav"
+    
+    # 1. Trascrizione
+    transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+    
+    # 2. Estrazione dati strutturati con AI
+    prompt = f"""
+    Sei l'assistente di un ispettore sicurezza nei cantieri che sta dirigendo un report.
+    Estrai le informazioni dal seguente testo e restituiscile in formato JSON:
+    "{transcript.text}"
+    
+    Restituisci JSON con queste chiavi (se un dato manca, metti una stringa vuota):
+    {{
+        "mandataria": "Elenco mandatarie",
+        "mandante": "Elenco mandanti",
+        "committente": "Nome committente",
+        "indirizzo": "Indirizzo committente",
+        "città": "Città",
+        "provincia": "Provincia in formato (XX)",
+        "commessa": "Commessa del committente espressa in modo formale ed esaustiva",
+        "oggetto": "Dettaglio del lavoro commissionato espresso in modo formale ed esaustivo"
+    }}
+    """
+    
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    
+    return json.loads(resp.choices[0].message.content)
+
+
+def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
+    client = OpenAI(api_key=st.secrets["openai_key"])
+    audio_file = io.BytesIO(audio_bytes)
+    audio_file.name = "audio.wav"
+    transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+    
+    # Dizionario delle descrizioni tecniche per guidare l'AI
+    istruzioni = {
+        "attività": "Descrivi le attività lavorative in corso nel cantiere con terminologia tecnica (D.Lgs 81/08).",
+        "coordinamento": "Descrivi le azioni di coordinamento e vigilanza svolte.",
+        "personale": "Elenca le figure professionali presenti, il numero di addetti e le eventuali ditte subappaltatrici.",
+        "verbali": "Riassumi le prescrizioni, le sospensioni o le osservazioni tecniche fatte durante il sopralluogo."
+    }
+    
+    prompt = f"""
+    Sei l'assistente di un ispettore sulla sicurezza nei cantieri. 
+    Compito: {istruzioni.get(nome_campo, "Trascrivi le indicazioni dell'ispettore e formatta il testo in modo professionale e formale.")}
+    Input: "{transcript.text}"
+    
+    Restituisci solo il testo formattato e per il campo '{nome_campo}'.
+    Se la trascrizione è assente o inutilizzabile, restituisci il campo vuoto.
+    """
+    
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return resp.choices[0].message.content
+
+
 # APP PRINCIPALE
 
 
@@ -529,7 +683,7 @@ if "app_state" not in st.session_state:
 if st.session_state.app_state == "ready":
     set_bg_color("#ffffff") 
 if st.session_state.app_state == "working":
-    color = "#CCBD31"
+    color = "#D0AD00"
     status_msg = "⚠️ ANALISI IN CORSO - NON INTERAGIRE"
 elif st.session_state.app_state == "done":
     color = "#89D889"
@@ -599,7 +753,7 @@ if utente_connesso:
 
                 with st.spinner("Analisi in corso..."):
                     # Esecuzione Analisi
-                    set_bg_color("#f0ff99")
+                    set_bg_color("#D0AD00")
                     st.session_state.app_state = "working"
                     report, testo = analizza_sicurezza_cantiere(audio['bytes'], file)
                     
@@ -787,33 +941,191 @@ if utente_connesso:
         if "anagrafica" not in st.session_state:
             st.session_state.anagrafica = {}
 
-        with st.expander("👤 Mandanti e Mandatari"):
-            campo_con_audio("Mandataria/e (elenco)", "mandataria", "Inserisci un nome per riga")
-            campo_con_audio("Mandante/i (elenco)", "mandante", "Inserisci un nome per riga")
-            
+        with st.expander("👤 Anagrafiche"):
 
-        with st.expander("🏢 Committente"):
-            campo_con_audio("Ragione Sociale Committente", "committente", tipo="input")
-            campo_con_audio("Indirizzo", "indirizzo", tipo="input")
+            # 1. Pulsante di registrazione unico
+            audio_data = mic_recorder(key="rec_anagrafica_totale", start_prompt="🎤", stop_prompt="⏹️")
+            
+            if audio_data:
+                audio_hash = hash(str(audio_data['bytes']))
+                if st.session_state.get("last_anagrafica_hash") != audio_hash:
+                    with st.spinner("L'AI sta estraendo i dati..."):
+                        set_bg_color("#D0AD00")
+                        dati = elabora_anagrafica_ai(audio_data['bytes'])
+                        
+                        # Sostituiamo le virgole con il ritorno a capo per gli elenchi
+                        if "mandataria" in dati and dati["mandataria"]:
+                            dati["mandataria"] = dati["mandataria"].replace(", ", "\n")
+                        if "mandante" in dati and dati["mandante"]:
+                            dati["mandante"] = dati["mandante"].replace(", ", "\n")
+                        
+                        st.session_state.anagrafica.update(dati)
+                        st.session_state.last_anagrafica_hash = audio_hash
+                        set_bg_color("#b3ff99")
+                        time.sleep(2)
+                        st.rerun()
+
+            # 2. Campi di input (uno sotto l'altro)
+            st.session_state.anagrafica["mandataria"] = st.text_area(
+                "Mandataria/e", 
+                value=st.session_state.anagrafica.get("mandataria", "")
+            )
+            st.session_state.anagrafica["mandante"] = st.text_area(
+                "Mandante/i", 
+                value=st.session_state.anagrafica.get("mandante", "")
+            )
+            st.session_state.anagrafica["committente"] = st.text_input(
+                "Ragione Sociale Committente", 
+                value=st.session_state.anagrafica.get("committente", "")
+            )
+            st.session_state.anagrafica["indirizzo"] = st.text_input(
+                "Indirizzo", 
+                value=st.session_state.anagrafica.get("indirizzo", "")
+            )
             
             c1, c2 = st.columns(2)
             with c1:
-                st.session_state.anagrafica["città"] = st.text_input("Città", value=st.session_state.anagrafica.get("città", ""))
+                st.session_state.anagrafica["città"] = st.text_input(
+                    "Città", 
+                    value=st.session_state.anagrafica.get("città", "")
+                )
             with c2:
-                st.session_state.anagrafica["provincia"] = st.text_input("Provincia", value=st.session_state.anagrafica.get("provincia", ""))
+                st.session_state.anagrafica["provincia"] = st.text_input(
+                    "Provincia", 
+                    value=st.session_state.anagrafica.get("provincia", "")
+                )
+
 
         with st.expander("📝 Commessa e Oggetto"):
-            campo_con_audio("Commessa", "commessa", "Descrizione dettagliata commessa")
-            campo_con_audio("Oggetto dei lavori", "oggetto", "Descrizione dettagliata oggetto")
+            audio_commessa = mic_recorder(key="rec_commessa", start_prompt="🎤", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
+            
+            if audio_commessa:
+                audio_hash_c = hash(str(audio_commessa['bytes']))
+                if st.session_state.get("last_commessa_hash") != audio_hash_c:
+                    with st.spinner("Elaborazione commessa..."):
+                        set_bg_color("#D0AD00")
+                        # Usiamo la stessa funzione che hai definito tu, 
+                        # ma ne estraiamo solo le chiavi pertinenti
+                        dati_c = elabora_anagrafica_ai(audio_commessa['bytes'])
+                        st.session_state.anagrafica.update({
+                            "commessa": dati_c.get("commessa", ""),
+                            "oggetto": dati_c.get("oggetto", "")
+                        })
+                        st.session_state.last_commessa_hash = audio_hash_c
+                        set_bg_color("#b3ff99")
+                        time.sleep(2)
+                        st.rerun()
 
-        with st.expander("🛠️ Attività e Personale"):
-            campo_con_audio("Attività di Cantiere", "attività")
-            campo_con_audio("Attività di Coordinamento", "coordinamento")
-            campo_con_audio("Personale Presente", "personale")
-            campo_con_audio("Verbali di Prescrizione/Sospensione", "verbali")
+            st.session_state.anagrafica["commessa"] = st.text_area("Commessa", value=st.session_state.anagrafica.get("commessa", ""))
+            st.session_state.anagrafica["oggetto"] = st.text_area("Oggetto dei lavori", value=st.session_state.anagrafica.get("oggetto", ""))
+
+        
+        # EXPANDER 3: ATTIVITÀ E PERSONALE
+        with st.expander("🛠️ Attività e Personale", expanded=True):
+    
+            # --- 1. ATTIVITÀ ---
+            with st.container():
+
+                audio_attivita = mic_recorder(key="rec_attivita", start_prompt="🎤 Attività", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
+                
+                st.session_state.anagrafica["attività"] = st.text_area(
+                    "Attività di Cantiere", 
+                    value=st.session_state.anagrafica.get("attività", "")
+                )
+                
+                if audio_attivita and isinstance(audio_attivita, dict) and 'bytes' in audio_attivita:
+                    current_hash = hash(str(audio_attivita['bytes']))
+                    if st.session_state.get("last_attivita_hash") != current_hash:
+                        with st.spinner("Elaborazione attività..."):
+                            set_bg_color("#D0AD00")
+                            risultato = elabora_campo_tecnico_ai(audio_attivita['bytes'], "attività")
+                            st.session_state.anagrafica["attività"] = risultato
+                            st.session_state["last_attivita_hash"] = current_hash
+                            # Reset del widget
+                            del st.session_state["rec_attivita"]
+                            set_bg_color("#b3ff99")
+                            time.sleep(2)
+                            st.rerun()
+
+            # --- 2. COORDINAMENTO---
+            with st.container():
+
+                audio_coord = mic_recorder(key="rec_coord", start_prompt="🎤 Coordinamento", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
+                
+                st.session_state.anagrafica["coordinamento"] = st.text_area(
+                    "Coordinamento", 
+                    value=st.session_state.anagrafica.get("coordinamento", "")
+                )
+                
+                if audio_coord and isinstance(audio_coord, dict) and 'bytes' in audio_coord:
+                    current_hash = hash(str(audio_coord['bytes']))
+                    if st.session_state.get("last_coord_hash") != current_hash:
+                        with st.spinner("Elaborazione coordinamento..."):
+                            set_bg_color("#D0AD00")
+                            risultato = elabora_campo_tecnico_ai(audio_coord['bytes'], "coordinamento")
+                            st.session_state.anagrafica["coordinamento"] = risultato
+                            st.session_state["last_coord_hash"] = current_hash
+                            # Reset del widget
+                            del st.session_state["rec_coord"]
+                            set_bg_color("#b3ff99")
+                            time.sleep(2)
+                            st.rerun()
+
+            # --- 3. PERSONALE ---
+            with st.container():
+
+                audio_personale = mic_recorder(key="rec_personale", start_prompt="🎤 Personale", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
+                
+                st.session_state.anagrafica["personale"] = st.text_area(
+                    "Personale Presente", 
+                    value=st.session_state.anagrafica.get("personale", "")
+                )
+                
+                if audio_personale and isinstance(audio_personale, dict) and 'bytes' in audio_personale:
+                    current_hash = hash(str(audio_personale['bytes']))
+                    if st.session_state.get("last_personale_hash") != current_hash:
+                        with st.spinner("Elaborazione personale..."):
+                            set_bg_color("#D0AD00")
+                            risultato = elabora_campo_tecnico_ai(audio_personale['bytes'], "personale")
+                            st.session_state.anagrafica["personale"] = risultato
+                            st.session_state["last_personale_hash"] = current_hash
+                            # Reset del widget
+                            del st.session_state["rec_personale"]
+                            set_bg_color("#b3ff99")
+                            time.sleep(2)
+                            st.rerun()
+
+            # --- 4. VERBALI ---
+            with st.container():
+                audio_verb = mic_recorder(key="rec_verbali", start_prompt="🎤 Verbali", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
+                
+                st.session_state.anagrafica["verbali"] = st.text_area(
+                    "Verbali di Prescrizione/Sospensione", 
+                    value=st.session_state.anagrafica.get("verbali", "")
+                )
+                
+                if audio_verb and isinstance(audio_verb, dict) and 'bytes' in audio_verb:
+                    current_hash = hash(str(audio_verb['bytes']))
+                    if st.session_state.get("last_verb_hash") != current_hash:
+                        with st.spinner("Elaborazione verbali..."):
+                            set_bg_color("#D0AD00")
+                            risultato = elabora_campo_tecnico_ai(audio_verb['bytes'], "verbali")
+                            st.session_state.anagrafica["verbali"] = risultato
+                            st.session_state["last_verb_hash"] = current_hash
+                            del st.session_state["rec_verbali"]
+                            set_bg_color("#b3ff99")
+                            time.sleep(2)
+                            st.rerun()
+
 
         with st.expander("📎 Allegati"):
-            uploaded_files = st.file_uploader("Carica allegati", accept_multiple_files=True, type=['pdf', 'jpg', 'png', 'txt'])
+            uploaded_files = st.file_uploader(
+                "Carica allegati", 
+                accept_multiple_files=True, 
+                type=['pdf', 'jpg', 'png', 'txt'],
+                key="file_uploader_allegati"
+            )
+            
             if uploaded_files:
                 nomi_file = ", ".join([f.name for f in uploaded_files])
                 st.session_state.anagrafica["allegati"] = f"Elenco allegati: {nomi_file}"
@@ -821,17 +1133,41 @@ if utente_connesso:
                 st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
 
 
-        # --- AGGIUNTA SOTTO A TUTTO ---
-        st.divider() # Linea di separazione visiva
+
+        # --- ESPORTAZIONE ---
+        st.divider()
         st.subheader("📥 Esportazione Report")
         
         if st.button("📄 Genera Report Finale"):
-            with st.spinner("Generazione documento in corso..."):
+            with st.spinner("Generazione documento..."):
                 doc_bytes = genera_report_finale(st.session_state.storico_report)
-                
+                st.session_state.doc_bytes = doc_bytes # Salviamo in session_state per l'email
+                st.success("Report generato!")
+
+        # Mostra i pulsanti solo se il report è stato generato
+        if "doc_bytes" in st.session_state:
+            col_down, col_mail = st.columns(2)
+            
+            with col_down:
                 st.download_button(
                     label="✅ Scarica il report",
-                    data=doc_bytes,
+                    data=st.session_state.doc_bytes,
                     file_name="Report_Sicurezza.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
+            
+            with col_mail:
+                if st.button("📧 Invia a me stesso via Email"):
+                    destinatario = st.session_state.user_data["email"]
+                    with st.spinner(f"Invio email a {destinatario}..."):
+                        success, msg = invia_report_via_email_graph(
+                            st.session_state.doc_bytes, 
+                            "Report_Sicurezza.docx", 
+                            destinatario
+                        )
+                        if success:
+                            st.success(msg)
+                        else:
+                            st.error(f"Errore: {msg}")
+
+        
