@@ -3,5 +3,6 @@ openai
 streamlit-mic-recorder
 streamlit_image_coordinates 
 streamlit_browser_storage 
+streamlit_local_storage
 docxtpl
 O365
