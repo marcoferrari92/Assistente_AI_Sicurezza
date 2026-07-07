@@ -15,7 +15,93 @@ from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from streamlit_image_coordinates import streamlit_image_coordinates
+from streamlit_browser_storage import SessionStorage as Storage
+from streamlit_local_storage import LocalStorage
 
+
+
+
+def salva_stato_completo():
+    localS = LocalStorage()
+    # Costruisci l'oggetto pulito
+    data = {
+        "anagrafica": st.session_state.anagrafica,
+        "storico_report": st.session_state.storico_report,
+        "edits": st.session_state.edits
+    }
+    # Salva una sola volta l'oggetto (senza re-incapsularlo)
+    localS.setItem("imprendo_dati", data)
+
+def recupera_stato_completo():
+    localS = LocalStorage()
+    dati = localS.getItem("imprendo_dati")
+    
+    # Se i dati esistono, puliamo la struttura se necessario
+    if dati:
+        # Se la libreria ti restituisce {"imprendo_dati": {...}}, estraiamo il contenuto reale
+        if "imprendo_dati" in dati:
+            dati = dati["imprendo_dati"]
+            
+        # Aggiorniamo lo stato
+        st.session_state.anagrafica = dati.get("anagrafica", {})
+        st.session_state.storico_report = dati.get("storico_report", [])
+        st.session_state.edits = dati.get("edits", {})
+        return True
+    return False
+
+
+def login():
+    if "user_data" not in st.session_state:
+        st.session_state.user_data = None
+
+    if st.session_state.user_data:
+        return st.session_state.user_data
+
+    st.title("🔒 Imprendo")
+    st.write("### Il tuo Assistente AI per la sicurezza nei cantieri")
+    
+    username = st.text_input(
+        "Username (Nome)", 
+        key="login_username", 
+        autocomplete="username"
+    ).lower().strip()
+    
+    password = st.text_input(
+        "Password", 
+        type="password", 
+        key="login_password", 
+        autocomplete="current-password"
+    )
+    
+    if st.button("Accedi", use_container_width=True):
+        if "utenti" in st.secrets and username in st.secrets["utenti"]:
+            db_user = st.secrets["utenti"][username]
+            if password == db_user["password"]:
+                real_name = db_user.get("nome", username.capitalize())
+                
+                # 1. Impostiamo i dati utente
+                st.session_state.user_data = {
+                    "username": username, 
+                    "email": db_user["email"], 
+                    "nome": real_name,
+                    "id": db_user.get("id", "") 
+                }
+                
+                # 2. Inizializziamo l'anagrafica se non esiste
+                # if "anagrafica" not in st.session_state:
+                #     st.session_state.anagrafica = {}
+                
+                # ORA recupera i dati: questo andrà a riempire o sovrascrivere 
+                # i dizionari vuoti con quelli salvati nel browser
+                recupera_stato_completo()
+                
+                # 4. Ricarichiamo per entrare nell'app
+                st.rerun()
+            else:
+                st.error(f"❌ **Password errata!**")
+        else:
+            st.error(f"❌ **Utente non trovato!**")
+    return None
 
 
 def ottieni_account_exchange(user_email):
@@ -149,49 +235,6 @@ def set_bg_color(color, status_text=None):
         """,
         unsafe_allow_html=True
     )
-
-# --- 4. CONTROLLO ACCESSO MULTI-UTENTE (IMPRENDO MORPHEUS) ---
-def login():
-    if "user_data" not in st.session_state:
-        st.session_state.user_data = None
-
-    if st.session_state.user_data:
-        return st.session_state.user_data
-
-    st.title("🔒 Imprendo")
-    st.write("### Il tuo Assistente AI per la sicurezza nei cantieri")
-    
-    username = st.text_input(
-        "Username (Nome)", 
-        key="login_username", 
-        autocomplete="username"
-    ).lower().strip()
-    
-    password = st.text_input(
-        "Password", 
-        type="password", 
-        key="login_password", 
-        autocomplete="current-password"
-    )
-    
-    if st.button("Accedi", use_container_width=True):
-        if "utenti" in st.secrets and username in st.secrets["utenti"]:
-            db_user = st.secrets["utenti"][username]
-            if password == db_user["password"]:
-                real_name = db_user.get("nome", username.capitalize())
-                # CORREZIONE: Estraiamo anche il campo 'id' dal record dell'utente nei secrets
-                st.session_state.user_data = {
-                    "username": username, 
-                    "email": db_user["email"], 
-                    "nome": real_name,
-                    "id": db_user.get("id", "") 
-                }
-                st.rerun()
-            else:
-                st.error(f"❌ **Password errata!** Prova a cliccare sul campo e riprova ad accedere.")
-        else:
-            st.error(f"❌ **Utente non trovato!** Prova a cliccare sul campo e riprova ad accedere.")
-    return None
 
 
 
@@ -693,8 +736,11 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 # APP PRINCIPALE
 
+recupera_stato_completo()
 
+# --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
+
 set_global_styles()
 
 if "app_state" not in st.session_state:
@@ -718,8 +764,34 @@ set_bg_color(color, status_msg)
 
 # --- 3. CONTENUTO PRINCIPALE ---
 if utente_connesso:
+    
     if st.sidebar.button("Logout"):
+        # 1. Reset
         st.session_state.user_data = None
+        st.session_state.anagrafica = {}
+        st.session_state.storico_report = []
+        
+        # 2. Pulizia reale del LocalStorage
+        localS = LocalStorage()
+        localS.deleteAll() # Oppure localS.deleteItem("imprendo_dati")
+        
+        st.rerun()
+
+    # Nella barra laterale, sotto il Logout
+    st.sidebar.divider()
+    st.sidebar.subheader("Reset App")
+    
+    if st.sidebar.button("🔄 Inizia da zero"):
+        # 1. Pulisce la memoria RAM corrente
+        st.session_state.anagrafica = {}
+        st.session_state.storico_report = []
+        st.session_state.edits = {}
+        
+        # 2. Pulisce il LocalStorage del browser
+        localS = LocalStorage()
+        localS.deleteAll()
+        
+        # 3. Ricarica l'app per pulire tutto
         st.rerun()
 
     status_placeholder = st.empty()
@@ -791,6 +863,7 @@ if utente_connesso:
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
+                    salva_stato_completo()
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(2)
@@ -847,6 +920,7 @@ if utente_connesso:
                                     })
                                 
                                 st.session_state.storico_report[idx]['report'] = report
+                                salva_stato_completo()
                                 st.rerun()
 
                         
@@ -859,10 +933,12 @@ if utente_connesso:
 
                         if c2.button("🔄 Rifai", key=f"redo_{idx}"):
                             st.session_state.active_recorder = {"idx": idx, "mode": "rework"}
+                            salva_stato_completo()
                             st.rerun()
 
                         if c3.button("➕ Integra", key=f"int_{idx}"):
                             st.session_state.active_recorder = {"idx": idx, "mode": "integration"}
+                            salva_stato_completo()
                             st.rerun()
                         
                         # NUOVO PULSANTE: Svuota solo le coordinate (i testi restano!)
@@ -872,6 +948,7 @@ if utente_connesso:
                                 for p in img_data['punti_critici']:
                                     p['coordinate'] = {'x': None, 'y': None} # Rende i cerchi invisibili
                             st.session_state.storico_report[idx]['report'] = report
+                            salva_stato_completo()
                             st.rerun()
 
                         # --- REGISTRATORE CONTESTUALE ---
@@ -897,10 +974,12 @@ if utente_connesso:
                                     new_v = st.session_state.get("version_counter", 0) + 1
                                     st.session_state.version_counter = new_v
                                     st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
+                                    salva_stato_completo()
                                     
                                     # Reset Edits
                                     for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
                                     st.session_state.edits[f"edit_testo_{idx}"] = testo
+                                    salva_stato_completo()
                                     
                                     del st.session_state.active_recorder
                                     st.rerun()
@@ -913,17 +992,20 @@ if utente_connesso:
                         # Se è la prima volta, inizializza con la trascrizione dell'AI
                         if key_testo not in st.session_state.edits:
                             st.session_state.edits[key_testo] = data["trascrizione"]
+                            salva_stato_completo()
                         
                         # Aggiornamento forzato se il verbale dell'AI è cambiato dopo un rework
                         if st.session_state.edits[key_testo] != data["trascrizione"]:
                              st.session_state.edits[key_testo] = data["trascrizione"]
+                             salva_stato_completo()
                         
                         # LA CHIAVE DINAMICA _v{ver} FORZA IL RENDER DEL NUOVO TESTO
                         st.session_state.edits[key_testo] = st.text_area(
                             "Modifica il verbale:", 
                             value=st.session_state.edits[key_testo], 
                             height=230,
-                            key=f"widget_{key_testo}_v{ver}" 
+                            key=f"widget_{key_testo}_v{ver}",
+                            on_change=salva_stato_completo 
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
@@ -935,12 +1017,14 @@ if utente_connesso:
                                 key_punto = f"edit_punto_{idx}_{i}"
                                 if key_punto not in st.session_state.edits:
                                     st.session_state.edits[key_punto] = p['commento']
+                                    salva_stato_completo()
                                 
                                 st.session_state.edits[key_punto] = st.text_area(
                                     f"{i}. {p['elemento']} ({p['oggetto']})",
                                     value=st.session_state.edits[key_punto],
                                     height=130,
-                                    key=f"widget_{key_punto}_v{ver}"
+                                    key=f"widget_{key_punto}_v{ver}",
+                                    on_change=salva_stato_completo
                                 )
                             
                             with c_punto2:
@@ -953,6 +1037,7 @@ if utente_connesso:
                                             img_data['punti_critici'].remove(p)
                                             # Aggiorniamo lo storico con il report modificato
                                             st.session_state.storico_report[idx]['report'] = report
+                                            salva_stato_completo()
                                             st.rerun()
 
         else:
@@ -991,6 +1076,9 @@ if utente_connesso:
                             "città": dati.get("città", ""),
                             "provincia": dati.get("provincia", "")
                         })
+
+                        # Salviamo lo stato per backup
+                        salva_stato_completo()
                         
                         st.session_state.last_anagrafica_hash = audio_hash
                         set_bg_color("#b3ff99")
@@ -1000,31 +1088,37 @@ if utente_connesso:
             # 2. Campi di input (uno sotto l'altro)
             st.session_state.anagrafica["mandataria"] = st.text_area(
                 "Mandataria/e", 
-                value=st.session_state.anagrafica.get("mandataria", "")
+                value=st.session_state.anagrafica.get("mandataria", ""),
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["mandante"] = st.text_area(
                 "Mandante/i", 
-                value=st.session_state.anagrafica.get("mandante", "")
+                value=st.session_state.anagrafica.get("mandante", ""),
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["committente"] = st.text_input(
                 "Ragione Sociale Committente", 
-                value=st.session_state.anagrafica.get("committente", "")
+                value=st.session_state.anagrafica.get("committente", ""),
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["indirizzo"] = st.text_input(
                 "Indirizzo", 
-                value=st.session_state.anagrafica.get("indirizzo", "")
+                value=st.session_state.anagrafica.get("indirizzo", ""),
+                on_change=salva_stato_completo
             )
             
             c1, c2 = st.columns(2)
             with c1:
                 st.session_state.anagrafica["città"] = st.text_input(
                     "Città", 
-                    value=st.session_state.anagrafica.get("città", "")
+                    value=st.session_state.anagrafica.get("città", ""),
+                    on_change=salva_stato_completo
                 )
             with c2:
                 st.session_state.anagrafica["provincia"] = st.text_input(
                     "Provincia", 
-                    value=st.session_state.anagrafica.get("provincia", "")
+                    value=st.session_state.anagrafica.get("provincia", ""),
+                    on_change=salva_stato_completo
                 )
 
 
@@ -1043,14 +1137,23 @@ if utente_connesso:
                             "commessa": dati_c.get("commessa", ""),
                             "oggetto": dati_c.get("oggetto", "")
                         })
+                        salva_stato_completo()
                         st.session_state.last_commessa_hash = audio_hash_c
                         set_bg_color("#b3ff99")
                         time.sleep(2)
                         st.rerun()
 
-            st.session_state.anagrafica["commessa"] = st.text_area("Commessa", value=st.session_state.anagrafica.get("commessa", ""))
-            st.session_state.anagrafica["oggetto"] = st.text_area("Oggetto dei lavori", value=st.session_state.anagrafica.get("oggetto", ""))
-
+            st.session_state.anagrafica["commessa"] = st.text_area(
+                "Commessa", 
+                value=st.session_state.anagrafica.get("commessa", ""),
+                on_change=salva_stato_completo
+            )
+            
+            st.session_state.anagrafica["oggetto"] = st.text_area(
+                "Oggetto dei lavori", 
+                value=st.session_state.anagrafica.get("oggetto", ""),
+                on_change=salva_stato_completo
+            )
         
         # EXPANDER 3: ATTIVITÀ E PERSONALE
         with st.expander("🛠️ Attività e Personale", expanded=True):
@@ -1062,7 +1165,8 @@ if utente_connesso:
                 
                 st.session_state.anagrafica["attività"] = st.text_area(
                     "Attività di Cantiere", 
-                    value=st.session_state.anagrafica.get("attività", "")
+                    value=st.session_state.anagrafica.get("attività", ""),
+                    on_change=salva_stato_completo
                 )
                 
                 if audio_attivita and isinstance(audio_attivita, dict) and 'bytes' in audio_attivita:
@@ -1073,6 +1177,7 @@ if utente_connesso:
                             risultato = elabora_campo_tecnico_ai(audio_attivita['bytes'], "attività")
                             st.session_state.anagrafica["attività"] = risultato
                             st.session_state["last_attivita_hash"] = current_hash
+                            salva_stato_completo()
                             # Reset del widget
                             del st.session_state["rec_attivita"]
                             set_bg_color("#b3ff99")
@@ -1086,7 +1191,8 @@ if utente_connesso:
                 
                 st.session_state.anagrafica["coordinamento"] = st.text_area(
                     "Coordinamento", 
-                    value=st.session_state.anagrafica.get("coordinamento", "")
+                    value=st.session_state.anagrafica.get("coordinamento", ""),
+                    on_change=salva_stato_completo
                 )
                 
                 if audio_coord and isinstance(audio_coord, dict) and 'bytes' in audio_coord:
@@ -1097,6 +1203,7 @@ if utente_connesso:
                             risultato = elabora_campo_tecnico_ai(audio_coord['bytes'], "coordinamento")
                             st.session_state.anagrafica["coordinamento"] = risultato
                             st.session_state["last_coord_hash"] = current_hash
+                            salva_stato_completo()
                             # Reset del widget
                             del st.session_state["rec_coord"]
                             set_bg_color("#b3ff99")
@@ -1110,7 +1217,8 @@ if utente_connesso:
                 
                 st.session_state.anagrafica["personale"] = st.text_area(
                     "Personale Presente", 
-                    value=st.session_state.anagrafica.get("personale", "")
+                    value=st.session_state.anagrafica.get("personale", ""),
+                    on_change=salva_stato_completo
                 )
                 
                 if audio_personale and isinstance(audio_personale, dict) and 'bytes' in audio_personale:
@@ -1121,6 +1229,7 @@ if utente_connesso:
                             risultato = elabora_campo_tecnico_ai(audio_personale['bytes'], "personale")
                             st.session_state.anagrafica["personale"] = risultato
                             st.session_state["last_personale_hash"] = current_hash
+                            salva_stato_completo()
                             # Reset del widget
                             del st.session_state["rec_personale"]
                             set_bg_color("#b3ff99")
@@ -1133,7 +1242,8 @@ if utente_connesso:
                 
                 st.session_state.anagrafica["verbali"] = st.text_area(
                     "Verbali di Prescrizione/Sospensione", 
-                    value=st.session_state.anagrafica.get("verbali", "")
+                    value=st.session_state.anagrafica.get("verbali", ""),
+                    on_change=salva_stato_completo
                 )
                 
                 if audio_verb and isinstance(audio_verb, dict) and 'bytes' in audio_verb:
@@ -1144,6 +1254,7 @@ if utente_connesso:
                             risultato = elabora_campo_tecnico_ai(audio_verb['bytes'], "verbali")
                             st.session_state.anagrafica["verbali"] = risultato
                             st.session_state["last_verb_hash"] = current_hash
+                            salva_stato_completo()
                             del st.session_state["rec_verbali"]
                             set_bg_color("#b3ff99")
                             time.sleep(2)
@@ -1155,14 +1266,23 @@ if utente_connesso:
                 "Carica allegati", 
                 accept_multiple_files=True, 
                 type=['pdf', 'jpg', 'png', 'txt'],
-                key="file_uploader_allegati"
+                key="file_uploader_allegati",
+                on_change=salva_stato_completo
             )
             
             if uploaded_files:
                 nomi_file = ", ".join([f.name for f in uploaded_files])
                 st.session_state.anagrafica["allegati"] = f"Elenco allegati: {nomi_file}"
+                # Il salvataggio è già coperto dall'on_change del file_uploader
             else:
-                st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
+                # Se non ci sono file, salviamo lo stato di "vuoto"
+                if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
+                    st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
+                    salva_stato_completo()
+
+            # Opzionale: mostra un avviso
+            if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
+                st.info(f"💾 {st.session_state.anagrafica['allegati']}")
 
 
 
