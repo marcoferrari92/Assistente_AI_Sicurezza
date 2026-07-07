@@ -978,13 +978,23 @@ if utente_connesso:
                         set_bg_color("#D0AD00")
                         dati = elabora_anagrafica_ai(audio_data['bytes'])
                         
-                        # Sostituiamo le virgole con il ritorno a capo per gli elenchi
-                        if "mandataria" in dati and dati["mandataria"]:
-                            dati["mandataria"] = dati["mandataria"].replace(", ", "\n")
-                        if "mandante" in dati and dati["mandante"]:
-                            dati["mandante"] = dati["mandante"].replace(", ", "\n")
+                        # FIX: Controlliamo se i campi esistono e sono stringhe prima di usare .replace()
+                        # Usiamo str() per sicurezza per evitare che crashi se riceve numeri o altro
                         
-                        st.session_state.anagrafica.update(dati)
+                        mandataria = dati.get("mandataria")
+                        st.session_state.anagrafica["mandataria"] = str(mandataria).replace(", ", "\n") if mandataria else ""
+                        
+                        mandante = dati.get("mandante")
+                        st.session_state.anagrafica["mandante"] = str(mandante).replace(", ", "\n") if mandante else ""
+                        
+                        # Aggiorniamo anche gli altri campi
+                        st.session_state.anagrafica.update({
+                            "committente": dati.get("committente", ""),
+                            "indirizzo": dati.get("indirizzo", ""),
+                            "città": dati.get("città", ""),
+                            "provincia": dati.get("provincia", "")
+                        })
+                        
                         st.session_state.last_anagrafica_hash = audio_hash
                         set_bg_color("#b3ff99")
                         time.sleep(2)
