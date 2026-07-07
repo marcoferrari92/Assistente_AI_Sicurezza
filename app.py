@@ -104,6 +104,22 @@ def invia_report_via_email_graph(doc_bytes, nome_file, user_email):
         return False, str(e)
     
 
+def set_global_styles():
+    st.markdown(
+        """
+        <style>
+        /* CSS globale che viene iniettato una sola volta */
+        img {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+        [data-testid="stImage"] {
+            width: 100% !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 def set_bg_color(color, status_text=None):
@@ -675,6 +691,7 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 
 utente_connesso = login()
+set_global_styles()
 
 if "app_state" not in st.session_state:
     status_msg = None
