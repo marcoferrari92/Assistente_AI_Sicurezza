@@ -921,23 +921,17 @@ if utente_connesso:
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE (REWORK/INTEGRAZIONE) ---
     with tab2:
         if st.session_state.storico_report:
-            # Usiamo un'enumerazione per avere un indice pulito
             for idx, data in enumerate(st.session_state.storico_report):
-                
-                # 1. KEY UNIVOCA: Fondamentale per far capire a Streamlit quale widget stai eliminando
-                # L'hash garantisce che se il contenuto cambia, il widget viene forzato al refresh
-                item_hash = hash(str(data))
-                expander_key = f"expander_{idx}_{item_hash}"
-                
+                expander_key = f"expander_idx_{idx}_id_{hash(str(data))}"
+
                 nome_file = data["nome_file"]
                 report = data["report"]
                 ver = data.get("version", 1) 
+                punti_totali = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
                 titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
                 
-                # 2. KEY APPLICATA: Aggiunta la chiave al componente expander
-                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=expander_key):
+                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True):
                     col1, col2 = st.columns([1, 1])
-                    
                     with col1:
                         
                         # 2. IMMAGINE INTERATTIVA
