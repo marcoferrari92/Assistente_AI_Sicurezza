@@ -1155,51 +1155,34 @@ if utente_connesso:
                         salva_stato_completo()
                         st.rerun()
 
-            # 2. Campi di input con Chiavi Statiche e on_change
-            st.session_state.anagrafica["mandataria"] = st.text_area(
-                "Mandataria/e", 
-                value=st.session_state.anagrafica.get("mandataria", ""),
-                key="widget_anagrafica_mandataria",
-                on_change=salva_stato_completo
-            )
             
-            st.session_state.anagrafica["mandante"] = st.text_area(
-                "Mandante/i", 
-                value=st.session_state.anagrafica.get("mandante", ""),
-                key="widget_anagrafica_mandante",
-                on_change=salva_stato_completo
-            )
+            # 1. Definizione dei campi
+            campi = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia"]
             
-            st.session_state.anagrafica["committente"] = st.text_input(
-                "Ragione Sociale Committente", 
-                value=st.session_state.anagrafica.get("committente", ""),
-                key="widget_anagrafica_committente",
-                on_change=salva_stato_completo
-            )
-            
-            st.session_state.anagrafica["indirizzo"] = st.text_input(
-                "Indirizzo", 
-                value=st.session_state.anagrafica.get("indirizzo", ""),
-                key="widget_anagrafica_indirizzo",
-                on_change=salva_stato_completo
-            )
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                st.session_state.anagrafica["città"] = st.text_input(
-                    "Città", 
-                    value=st.session_state.anagrafica.get("città", ""),
-                    key="widget_anagrafica_citta",
-                    on_change=salva_stato_completo
-                )
-            with c2:
-                st.session_state.anagrafica["provincia"] = st.text_input(
-                    "Provincia", 
-                    value=st.session_state.anagrafica.get("provincia", ""),
-                    key="widget_anagrafica_provincia",
-                    on_change=salva_stato_completo
-                )
-         
+            for campo in campi:
+                # 2. Inizializzazione dati (ESATTAMENTE COME NELLA TAB 2)
+                # Invece di edit_testo_{idx}, usiamo il nome del campo
+                if campo not in st.session_state.anagrafica:
+                    st.session_state.anagrafica[campo] = "" # O il valore di default che preferisci
+                
+                # 3. WIDGET CON CHIAVE STATICA
+                # Usiamo una chiave univoca per evitare conflitti, come edit_testo_{idx}
+                key_widget = f"anagrafica_{campo}"
+                
+                if campo in ["mandataria", "mandante"]:
+                    st.session_state.anagrafica[campo] = st.text_area(
+                        campo.capitalize(), 
+                        value=st.session_state.anagrafica[campo], 
+                        key=key_widget,
+                        on_change=salva_stato_completo
+                    )
+                else:
+                    st.session_state.anagrafica[campo] = st.text_input(
+                        campo.capitalize(), 
+                        value=st.session_state.anagrafica[campo], 
+                        key=key_widget,
+                        on_change=salva_stato_completo
+                    )
 
 
         with st.expander("📝 Commessa e Oggetto"):
