@@ -2,6 +2,7 @@ import base64
 import json
 import io
 import time
+import random
 import streamlit as st
 from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
@@ -23,30 +24,37 @@ from streamlit_local_storage import LocalStorage
 
 
 
-# DEFINIAMO LA CHIAVE FISSA (così il recupero sa dove guardare!)
-STORAGE_KEY = "imprendo_dati_fisso"
+# Questa funzione gestisce la chiave in modo sicuro
+def get_storage():
+    # Se non esiste ancora una chiave, ne crea una casuale e la salva
+    if "storage_key" not in st.session_state:
+        st.session_state.storage_key = f"storage_{random.randint(1000, 9999)}"
+    
+    # Crea l'istanza se non esiste, usando la chiave salvata
+    if "ls_instance" not in st.session_state:
+        st.session_state.ls_instance = LocalStorage(key=st.session_state.storage_key)
+        
+    return st.session_state.ls_instance
 
 def salva_stato_completo():
-    # Usiamo la chiave fissa
-    localS = LocalStorage(key=STORAGE_KEY)
+    localS = get_storage() # Recupera l'istanza con la chiave giusta
     
-    storico_da_salvare = []
+    storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
-        storico_da_salvare.append(item_copy)
+        storico_salvabile.append(item_copy)
 
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico_da_salvare,
+        "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    # Usiamo LA STESSA chiave fissa per recuperare
-    localS = LocalStorage(key=STORAGE_KEY)
+    localS = get_storage() # Recupera LA STESSA istanza con la stessa chiave
     dati = localS.getItem("imprendo_dati")
     
     if dati:
