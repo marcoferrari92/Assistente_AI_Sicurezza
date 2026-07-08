@@ -1176,7 +1176,7 @@ if utente_connesso:
             salt = st.session_state.anagrafica_version
             
             for campo_id, label, tipo in campi:
-                
+
                 # 1. Recuperiamo il valore aggiornato dal session_state
                 # Questo garantisce che leggiamo l'ultimo valore scritto dall'AI
                 valore_attuale = st.session_state.anagrafica.get(campo_id, "")
@@ -1214,27 +1214,38 @@ if utente_connesso:
                 if st.session_state.get("last_commessa_hash") != audio_hash_c:
                     with st.spinner("Elaborazione commessa..."):
                         set_bg_color("#D0AD00")
-                        # Usiamo la stessa funzione che hai definito tu, 
-                        # ma ne estraiamo solo le chiavi pertinenti
                         dati_c = elabora_anagrafica_ai(audio_commessa['bytes'])
+                        
                         st.session_state.anagrafica.update({
                             "commessa": dati_c.get("commessa", ""),
                             "oggetto": dati_c.get("oggetto", "")
                         })
-                        salva_stato_completo()
+                        
+                        # INCREMENTIAMO IL SALT per forzare il refresh anche qui
+                        st.session_state.anagrafica_version += 1
+                        
                         st.session_state.last_commessa_hash = audio_hash_c
                         set_bg_color("#b3ff99")
                         time.sleep(2)
+                        salva_stato_completo()
                         st.rerun()
 
-            key_commessa = "widget_commessa"
+            # Recuperiamo il salt corrente
+            salt = st.session_state.get("anagrafica_version", 0)
+
+            # Chiavi dinamiche con il salt
+            key_commessa = f"widget_commessa_{salt}"
+            key_oggetto = f"widget_oggetto_{salt}"
+
+            # Widget Commessa
             st.session_state.anagrafica["commessa"] = st.text_area(
                 "Commessa", 
                 value=st.session_state.anagrafica.get("commessa", ""),
                 key=key_commessa,
                 on_change=salva_stato_completo
             )
-            key_oggetto = "widget_oggetto"
+            
+            # Widget Oggetto
             st.session_state.anagrafica["oggetto"] = st.text_area(
                 "Oggetto dei lavori", 
                 value=st.session_state.anagrafica.get("oggetto", ""),
