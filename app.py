@@ -1170,28 +1170,35 @@ if utente_connesso:
                 ("provincia", "Provincia", "input")
             ]
 
+            # Definiamo un "salt" (sale) che cambia solo quando l'AI aggiorna i dati
+            # Se st.session_state.anagrafica non ha un "version", lo creiamo
+            if "anagrafica_version" not in st.session_state:
+                st.session_state.anagrafica_version = 0
+
+            # Questo 'salt' serve a cambiare la key del widget solo quando l'AI lavora
+            # Così Streamlit è FORZATO a ridisegnare il campo con il nuovo valore
+            salt = st.session_state.anagrafica_version
+            
             for campo_id, label, tipo in campi:
-                # 1. Inizializzazione (se l'AI non ha ancora scritto nulla)
+                # La key ora include il 'salt'. Quando l'AI finisce, incrementiamo il salt.
+                key_widget = f"widget_{campo_id}_{salt}"
+                
                 if campo_id not in st.session_state.anagrafica:
                     st.session_state.anagrafica[campo_id] = ""
 
-                # 2. WIDGET CON CHIAVE STATICA (USIAMO campo_id direttamente)
-                # La key è "widget_" + campo_id
-                key_widget = f"widget_{campo_id}"
-                
                 if tipo == "area":
                     st.session_state.anagrafica[campo_id] = st.text_area(
                         label, 
                         value=st.session_state.anagrafica[campo_id], 
                         height=130,
-                        key=key_widget,  
+                        key=key_widget, # <--- La key cambia quando l'AI aggiorna i dati
                         on_change=salva_stato_completo 
                     )
                 else:
                     st.session_state.anagrafica[campo_id] = st.text_input(
                         label, 
                         value=st.session_state.anagrafica[campo_id], 
-                        key=key_widget,  
+                        key=key_widget, 
                         on_change=salva_stato_completo 
                     )
 
