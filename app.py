@@ -1203,7 +1203,7 @@ if utente_connesso:
                     )
                 
                 # 3. Aggiorniamo il session_state se l'utente ha scritto nel widget
-                if nuovo_valore != st.session_state.anagrafica[campo_id]:
+                if nuovo_valore != st.session_state.anagrafica.get(campo_id, ""):
                     st.session_state.anagrafica[campo_id] = nuovo_valore
 
 
