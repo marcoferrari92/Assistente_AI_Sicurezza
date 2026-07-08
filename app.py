@@ -1097,37 +1097,35 @@ if utente_connesso:
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
-                        for p in punti_totali:
-                            # Se il punto non ha un id, crealo basandoti sulle coordinate o contenuto
-                            # Questo assicura che la key sia sempre la stessa anche se la lista cambia
-                            id_punto = f"{p.get('coordinate', {}).get('x')}_{p.get('coordinate', {}).get('y')}"
+                        
+                        # Usiamo un contatore sicuro
+                        for idx_p, p in enumerate(punti_totali):
+                            # Creiamo un ID unico che non dipende dal numero di elementi nella lista
+                            # Se il punto ha un 'id' nel dizionario, usa quello. Altrimenti usa le coordinate.
+                            id_univoco = p.get('id', f"x{p.get('coordinate',{}).get('x')}_y{p.get('coordinate',{}).get('y')}_{idx_p}")
                             
                             c_punto1, c_punto2 = st.columns([0.9, 0.1])
                             
                             with c_punto1:
-                                # Usa id_punto nella key invece dell'indice i
-                                key_punto = f"edit_punto_{idx}_{id_punto}"
-                                
+                                key_punto = f"edit_punto_{idx}_{id_univoco}"
                                 if key_punto not in st.session_state.edits:
-                                    st.session_state.edits[key_punto] = p['commento']
+                                    st.session_state.edits[key_punto] = p.get('commento', '')
                                 
                                 st.session_state.edits[key_punto] = st.text_area(
-                                    f"{p['elemento']} ({p['oggetto']})",
+                                    f"{idx_p + 1}. {p.get('elemento', 'Punto')} ({p.get('oggetto', 'Nota')})",
                                     value=st.session_state.edits[key_punto],
                                     height=130,
-                                    key=key_punto, 
+                                    key=key_punto,
                                     on_change=salva_stato_completo
                                 )
                             
                             with c_punto2:
-                                # Bottone per eliminare il singolo punto
-                                if st.button("❌", key=f"del_punto_{idx}_{i}"):
-                                    # Rimuoviamo il punto dalla struttura dati del report
-                                    # Dobbiamo cercarlo nel report originale
+                                # Il bottone usa la stessa chiave univoca, non i
+                                if st.button("❌", key=f"del_punto_{idx}_{id_univoco}"):
+                                    # Rimuovi il punto e forza il rerun
                                     for img_data in report.get("analisi_per_immagine", []):
                                         if p in img_data['punti_critici']:
                                             img_data['punti_critici'].remove(p)
-                                            # Aggiorniamo lo storico con il report modificato
                                             st.session_state.storico_report[idx]['report'] = report
                                             salva_stato_completo()
                                             st.rerun()
