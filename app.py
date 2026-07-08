@@ -22,7 +22,34 @@ from streamlit_local_storage import LocalStorage
 
 
 
-
+def resetta_tutto_il_sistema():
+    # 1. Pulisce la RAM (fondamentale)
+    st.session_state.anagrafica = {}
+    st.session_state.storico_report = []
+    st.session_state.edits = {}
+    
+    # 2. Pulizia chirurgica del LocalStorage
+    if "ls_instance" in st.session_state:
+        localS = st.session_state.ls_instance
+        
+        # Recuperiamo tutte le chiavi attualmente presenti nel LocalStorage del browser
+        # Questa è la funzione standard per vedere cosa c'è dentro
+        all_keys = localS.getAllKeys() 
+        
+        # Se la libreria non ha getAllKeys(), dobbiamo conoscere i nomi.
+        # Poiché sappiamo che stiamo usando "imprendo_dati", cancelliamola.
+        # Se ne hai altre, aggiungile a questa lista.
+        chiavi_da_cancellare = ["imprendo_dati"] 
+        
+        for key in chiavi_da_cancellare:
+            try:
+                localS.deleteItem(key)
+            except:
+                # Se deleteItem fallisce, sovrascriviamo con un dizionario vuoto
+                localS.setItem(key, {})
+                
+    # 3. Riavvio per pulire completamente la sessione
+    st.rerun()
 
 # Questa funzione gestisce la chiave in modo sicuro
 def get_storage():
@@ -787,37 +814,25 @@ set_bg_color(color, status_msg)
 
 # --- 3. CONTENUTO PRINCIPALE ---
 if utente_connesso:
-    
-    if st.sidebar.button("Logout"):
-        # 1. Reset
-        st.session_state.user_data = None
-        st.session_state.anagrafica = {}
-        st.session_state.storico_report = []
-        
-        # 2. Pulizia reale del LocalStorage
-        localS = LocalStorage()
-        localS.deleteAll() # Oppure localS.deleteItem("imprendo_dati")
-        
-        st.rerun()
-
-    # Nella barra laterale, sotto il Logout
-    st.sidebar.divider()
-    st.sidebar.subheader("Reset App")
-    
-    if st.sidebar.button("🔄 Inizia da zero"):
-        # 1. Pulisce la memoria RAM corrente
-        st.session_state.anagrafica = {}
-        st.session_state.storico_report = []
-        st.session_state.edits = {}
-        
-        # 2. Pulisce il LocalStorage del browser
-        localS = LocalStorage()
-        localS.deleteAll()
-        
-        # 3. Ricarica l'app per pulire tutto
-        st.rerun()
 
     status_placeholder = st.empty()
+    
+    if st.sidebar.button("Logout"):
+        status_placeholder.info("Logout in corso... pulizia dati...")
+        resetta_tutto_il_sistema()
+        import time
+        time.sleep(1)
+        st.rerun()
+
+    st.sidebar.divider()
+    st.sidebar.subheader("Reset App")
+
+    if st.sidebar.button("🔄 Inizia da zero"):
+        status_placeholder.warning("Reset totale in corso...")
+        resetta_tutto_il_sistema()
+        import time
+        time.sleep(1)
+        st.rerun()
 
 
     # IMPOSTAZIONI 
