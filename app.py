@@ -23,32 +23,39 @@ from streamlit_local_storage import LocalStorage
 
 
 def resetta_tutto_il_sistema():
-    # 1. Pulisce la RAM
+    # 1. Pulisce la RAM (Reset stato dell'app)
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
     st.session_state.edits = {}
     st.session_state.user_data = None
     
-    # 2. Pulizia del LocalStorage usando la CHIAVE DINAMICA corrente
-    if "ls_instance" in st.session_state and "storage_key" in st.session_state:
-        # Recuperiamo la chiave corretta che stiamo usando in questo istante
-        chiave_corrente = st.session_state.storage_key
-        
+    # 2. Pulizia fisica nel LocalStorage
+    # Usiamo il metodo MASTER_POINTER per sapere cosa cancellare
+    master = LocalStorage(key="MASTER_POINTER")
+    chiave_da_cancellare = master.getItem("chiave_valida")
+    
+    # Se esiste una chiave puntata dal master, cancella il contenuto di quella chiave
+    if chiave_da_cancellare:
         try:
-            # Cancelliamo la chiave dinamica specifica che è attiva ora
-            st.session_state.ls_instance.deleteItem("imprendo_dati") # Cancella il contenuto
-            # Se la libreria permette di rimuovere la chiave intera:
-            # st.session_state.ls_instance.deleteItem(chiave_corrente) 
-        except:
-            # Fallback
-            st.session_state.ls_instance.setItem("imprendo_dati", {})
+            storage_reale = LocalStorage(key=chiave_da_cancellare)
+            storage_reale.deleteItem("imprendo_dati")
+        except Exception:
+            pass
             
-    # IMPORTANTE: Resettiamo anche la chiave dinamica così alla prossima apertura 
-    # ne genera una nuova e siamo sicuri di essere "puliti"
+    # 3. Cancella il Master Pointer stesso (così l'app non troverà più nulla al riavvio)
+    try:
+        master.deleteItem("chiave_valida")
+    except Exception:
+        pass
+            
+    # 4. Rimuovi le variabili di controllo dal session_state
     if "storage_key" in st.session_state:
         del st.session_state.storage_key
     if "ls_instance" in st.session_state:
         del st.session_state.ls_instance
+        
+    # Feedback visivo opzionale (se vuoi metterlo nel segnaposto)
+    st.toast("Sistema resettato correttamente!", icon="🔄")
 
 
 
