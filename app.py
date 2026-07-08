@@ -53,25 +53,26 @@ def resetta_tutto_il_sistema():
 
 
 
+import streamlit as st
+import random
+import base64
+from streamlit_local_storage import LocalStorage
+
 def salva_stato_completo():
-    """
-    Genera una nuova chiave univoca, la salva globalmente nel session_state 
-    e salva i dati correnti (con immagini in base64) nel LocalStorage.
-    """
-    # 1. Genera una chiave casuale AD OGNI CHIAMATA (evita duplicati di Streamlit)
-    nuova_chiave = f"storage_{random.randint(10000, 99999)}"
+    # 1. Genera o recupera la chiave persistente dal LocalStorage
+    master = LocalStorage(key="MASTER_POINTER")
+    chiave_attuale = master.getItem("chiave_valida")
     
-    # 2. Aggiorna la variabile globale nel session_state così recupera_stato_completo la trova
-    st.session_state.storage_key = nuova_chiave
+    if not chiave_attuale:
+        chiave_attuale = f"storage_{random.randint(10000, 99999)}"
+        master.setItem("chiave_valida", chiave_attuale)
     
-    # 3. Crea l'istanza usando la chiave appena generata
-    localS = LocalStorage(key=nuova_chiave)
+    # 2. Salva i dati usando la chiave recuperata dal master
+    localS = LocalStorage(key=chiave_attuale)
     
-    # 4. Prepara i dati (conversione binario -> base64)
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
-        # Se c'è un dato binario, codificalo in base64
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
@@ -82,45 +83,34 @@ def salva_stato_completo():
         "edits": st.session_state.edits
     }
     
-    # 5. Salva nel browser
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    """
-    Recupera i dati usando la chiave salvata nel session_state (se esiste)
-    e riconverte le immagini da base64 a binario.
-    """
-    # 1. Verifica se esiste la chiave globale generata dall'ultimo salvataggio
-    if "storage_key" not in st.session_state:
-        return False
+    # 1. Guarda nel MASTER_POINTER qual è la chiave da usare
+    master = LocalStorage(key="MASTER_POINTER")
+    chiave_reale = master.getItem("chiave_valida")
     
-    # 2. Usa ESATTAMENTE quella chiave per istanziare il componente
-    localS = LocalStorage(key=st.session_state.storage_key)
+    if not chiave_reale:
+        return False
+        
+    # 2. Vai alla chiave trovata e carica i dati
+    localS = LocalStorage(key=chiave_reale)
     dati = localS.getItem("imprendo_dati")
     
-    # 3. Se troviamo dati, aggiorniamo il session_state
     if dati:
-        # Gestione eventuale wrapper della libreria
-        if isinstance(dati, dict) and "imprendo_dati" in dati:
-            dati = dati["imprendo_dati"]
-            
+        # Recupero dati...
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
         storico_recuperato = []
         for item in dati.get("storico_report", []):
             item_copy = item.copy()
-            # Riconverti da base64 a binario se necessario
             if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
-                try:
-                    item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
-                except Exception:
-                    pass # Se la decodifica fallisce, lascia il dato così com'è
+                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
             storico_recuperato.append(item_copy)
             
         st.session_state.storico_report = storico_recuperato
         return True
-        
     return False
 
 
