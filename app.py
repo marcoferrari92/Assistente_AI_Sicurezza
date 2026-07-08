@@ -1156,32 +1156,39 @@ if utente_connesso:
                         st.rerun()
 
             
-            # 1. Definizione dei campi
-            campi = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia"]
-            
-            for campo in campi:
-                # 2. Inizializzazione dati (ESATTAMENTE COME NELLA TAB 2)
-                # Invece di edit_testo_{idx}, usiamo il nome del campo
-                if campo not in st.session_state.anagrafica:
-                    st.session_state.anagrafica[campo] = "" # O il valore di default che preferisci
+            # Lista definita fuori dal loop
+            campi = [
+                ("mandataria", "Mandataria/e", "area"),
+                ("mandante", "Mandante/i", "area"),
+                ("committente", "Ragione Sociale Committente", "input"),
+                ("indirizzo", "Indirizzo", "input"),
+                ("città", "Città", "input"),
+                ("provincia", "Provincia", "input")
+            ]
+
+            for campo_id, label, tipo in campi:
+                # 1. Inizializzazione (se l'AI non ha ancora scritto nulla)
+                if campo_id not in st.session_state.anagrafica:
+                    st.session_state.anagrafica[campo_id] = ""
+
+                # 2. WIDGET CON CHIAVE STATICA (USIAMO campo_id direttamente)
+                # La key è "widget_" + campo_id
+                key_widget = f"widget_{campo_id}"
                 
-                # 3. WIDGET CON CHIAVE STATICA
-                # Usiamo una chiave univoca per evitare conflitti, come edit_testo_{idx}
-                key_widget = f"anagrafica_{campo}"
-                
-                if campo in ["mandataria", "mandante"]:
-                    st.session_state.anagrafica[campo] = st.text_area(
-                        campo.capitalize(), 
-                        value=st.session_state.anagrafica[campo], 
-                        key=key_widget,
-                        on_change=salva_stato_completo
+                if tipo == "area":
+                    st.session_state.anagrafica[campo_id] = st.text_area(
+                        label, 
+                        value=st.session_state.anagrafica[campo_id], 
+                        height=130,
+                        key=key_widget,  
+                        on_change=salva_stato_completo 
                     )
                 else:
-                    st.session_state.anagrafica[campo] = st.text_input(
-                        campo.capitalize(), 
-                        value=st.session_state.anagrafica[campo], 
-                        key=key_widget,
-                        on_change=salva_stato_completo
+                    st.session_state.anagrafica[campo_id] = st.text_input(
+                        label, 
+                        value=st.session_state.anagrafica[campo_id], 
+                        key=key_widget,  
+                        on_change=salva_stato_completo 
                     )
 
 
