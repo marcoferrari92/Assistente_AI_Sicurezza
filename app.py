@@ -1151,7 +1151,7 @@ if utente_connesso:
                         })
 
                         # Salviamo lo stato per backup
-                        #salva_stato_completo()
+                        salva_stato_completo()
                         
                         st.session_state.last_anagrafica_hash = audio_hash
                         set_bg_color("#b3ff99")
@@ -1200,7 +1200,6 @@ if utente_connesso:
                     key=key_provincia
                 )
             salva_stato_completo()
-            st.rerun()
 
 
         with st.expander("📝 Commessa e Oggetto"):
