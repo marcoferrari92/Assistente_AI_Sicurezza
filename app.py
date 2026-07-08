@@ -54,37 +54,57 @@ def resetta_tutto_il_sistema():
 
 # 3. Salvataggio
 def salva_stato_completo():
-    master = get_ls("MASTER_POINTER")
+    # Usiamo direttamente LocalStorage (come avevi originariamente)
+    # Senza registri complessi o librerie mischiate
+    master = LocalStorage(key="MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
     if not chiave_attuale:
         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
         master.setItem("chiave_valida", chiave_attuale)
     
-    localS = get_ls(chiave_attuale)
+    localS = LocalStorage(key=chiave_attuale)
     
+    # CONVERSIONE BYTES -> BASE64
+    storico_salvabile = []
+    for item in st.session_state.storico_report:
+        item_copy = item.copy()
+        if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
+            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+        storico_salvabile.append(item_copy)
+
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": st.session_state.storico_report,
+        "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
-    # LocalStorage richiede setItem
+    
     localS.setItem("imprendo_dati", data)
 
 # 4. Recupero
 def recupera_stato_completo():
-    master = get_ls("MASTER_POINTER")
+    master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
-    if not chiave_reale: return False
+    if not chiave_reale:
+        return False
         
-    localS = get_ls(chiave_reale)
+    localS = LocalStorage(key=chiave_reale)
     dati = localS.getItem("imprendo_dati")
     
     if dati:
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
-        st.session_state.storico_report = dati.get("storico_report", [])
+        
+        # RIPRISTINO BASE64 -> BYTES
+        storico_recuperato = []
+        for item in dati.get("storico_report", []):
+            item_copy = item.copy()
+            if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
+                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+            storico_recuperato.append(item_copy)
+            
+        st.session_state.storico_report = storico_recuperato
         return True
     return False
 
