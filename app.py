@@ -796,6 +796,7 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 
 # APP PRINCIPALE
+recupera_stato_completo() 
 
 # --- INIZIALIZZAZIONE FORZATA (DEVE ESSERE IN CIMA) ---
 if "anagrafica" not in st.session_state:
