@@ -21,11 +21,14 @@ from streamlit_local_storage import LocalStorage
 
 
 
+# Metti questa costante in cima al file
+STORAGE_KEY = "my_unique_storage_identifier"
+
 def salva_stato_completo():
-    # Assegna una chiave univoca basata sul tempo o un contatore 
-    # per evitare che Streamlit veda il duplicato come un conflitto
-    unique_key = f"storage_{time.time()}"
-    localS = LocalStorage(key=unique_key)
+    # USIAMO UNA CHIAVE FISSA. 
+    # Il motivo per cui ti dava errore è che probabilmente 
+    # la funzione veniva chiamata durante il rendering del layout.
+    localS = LocalStorage(key=STORAGE_KEY)
     
     storico_da_salvare = []
     for item in st.session_state.storico_report:
