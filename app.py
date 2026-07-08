@@ -21,13 +21,13 @@ from streamlit_local_storage import LocalStorage
 
 
 
-# Metti questa costante in cima al file
-STORAGE_KEY = "my_unique_storage_identifier"
+
+
+# DEFINIAMO LA CHIAVE FISSA (così il recupero sa dove guardare!)
+STORAGE_KEY = "imprendo_dati_fisso"
 
 def salva_stato_completo():
-    # USIAMO UNA CHIAVE FISSA. 
-    # Il motivo per cui ti dava errore è che probabilmente 
-    # la funzione veniva chiamata durante il rendering del layout.
+    # Usiamo la chiave fissa
     localS = LocalStorage(key=STORAGE_KEY)
     
     storico_da_salvare = []
@@ -45,10 +45,8 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    # Stessa logica per il recupero
-    unique_key = f"storage_{time.time()}"
-    localS = LocalStorage(key=unique_key)
-    
+    # Usiamo LA STESSA chiave fissa per recuperare
+    localS = LocalStorage(key=STORAGE_KEY)
     dati = localS.getItem("imprendo_dati")
     
     if dati:
