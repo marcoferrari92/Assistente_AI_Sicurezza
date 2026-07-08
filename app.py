@@ -21,31 +21,45 @@ from streamlit_local_storage import LocalStorage
 
 
 
+
+
 def salva_stato_completo():
     localS = LocalStorage()
-    # Costruisci l'oggetto pulito
+    
+    # Creiamo una copia sicura dello storico per non alterare l'originale
+    storico_sicuro = []
+    for item in st.session_state.storico_report:
+        # Convertiamo i bytes in base64 stringa
+        item_copy = item.copy()
+        if isinstance(item_copy.get("bytes"), bytes):
+            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+        storico_sicuro.append(item_copy)
+
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": st.session_state.storico_report,
+        "storico_report": storico_sicuro,
         "edits": st.session_state.edits
     }
-    # Salva una sola volta l'oggetto (senza re-incapsularlo)
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
     localS = LocalStorage()
     dati = localS.getItem("imprendo_dati")
     
-    # Se i dati esistono, puliamo la struttura se necessario
     if dati:
-        # Se la libreria ti restituisce {"imprendo_dati": {...}}, estraiamo il contenuto reale
         if "imprendo_dati" in dati:
             dati = dati["imprendo_dati"]
             
-        # Aggiorniamo lo stato
         st.session_state.anagrafica = dati.get("anagrafica", {})
-        st.session_state.storico_report = dati.get("storico_report", [])
         st.session_state.edits = dati.get("edits", {})
+        
+        # Riconvertiamo le stringhe base64 in bytes
+        storico = dati.get("storico_report", [])
+        for item in storico:
+            if isinstance(item.get("bytes"), str):
+                item["bytes"] = base64.b64decode(item["bytes"])
+        
+        st.session_state.storico_report = storico
         return True
     return False
 
