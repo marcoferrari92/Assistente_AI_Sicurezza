@@ -18,47 +18,35 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from streamlit_browser_storage import SessionStorage as Storage
 from streamlit_local_storage import LocalStorage
 
-
+storage_instance = LocalStorage()
 
 
 
 
 def salva_stato_completo():
-    #localS = LocalStorage()
+    # Rimuovi: localS = LocalStorage()
     
-    # Creiamo una copia sicura dello storico per non alterare l'originale
-    storico_sicuro = []
-    for item in st.session_state.storico_report:
-        # Convertiamo i bytes in base64 stringa
-        item_copy = item.copy()
-        if isinstance(item_copy.get("bytes"), bytes):
-            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
-        storico_sicuro.append(item_copy)
-
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico_sicuro,
+        "storico_report": st.session_state.storico_report,
         "edits": st.session_state.edits
     }
-    localS.setItem("imprendo_dati", data)
+    # Usa l'istanza creata all'inizio
+    storage_instance.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    dati = localS.getItem("imprendo_dati")
+    # Rimuovi: localS = LocalStorage()
+    
+    # Usa l'istanza creata all'inizio
+    dati = storage_instance.getItem("imprendo_dati")
     
     if dati:
         if "imprendo_dati" in dati:
             dati = dati["imprendo_dati"]
             
         st.session_state.anagrafica = dati.get("anagrafica", {})
+        st.session_state.storico_report = dati.get("storico_report", [])
         st.session_state.edits = dati.get("edits", {})
-        
-        # Riconvertiamo le stringhe base64 in bytes
-        storico = dati.get("storico_report", [])
-        for item in storico:
-            if isinstance(item.get("bytes"), str):
-                item["bytes"] = base64.b64decode(item["bytes"])
-        
-        st.session_state.storico_report = storico
         return True
     return False
 
@@ -754,7 +742,6 @@ recupera_stato_completo()
 
 # --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
-localS = LocalStorage()
 
 set_global_styles()
 
