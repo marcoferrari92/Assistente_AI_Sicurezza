@@ -53,21 +53,25 @@ def resetta_tutto_il_sistema():
 
 
 
-
 def salva_stato_completo():
-    # 1. Crea la chiave casuale AD OGNI CHIAMATA (come hai chiesto)
+    """
+    Genera una nuova chiave univoca, la salva globalmente nel session_state 
+    e salva i dati correnti (con immagini in base64) nel LocalStorage.
+    """
+    # 1. Genera una chiave casuale AD OGNI CHIAMATA (evita duplicati di Streamlit)
     nuova_chiave = f"storage_{random.randint(10000, 99999)}"
     
-    # 2. La salva nella variabile globale (session_state)
+    # 2. Aggiorna la variabile globale nel session_state così recupera_stato_completo la trova
     st.session_state.storage_key = nuova_chiave
     
     # 3. Crea l'istanza usando la chiave appena generata
     localS = LocalStorage(key=nuova_chiave)
     
-    # 4. Prepara i dati
+    # 4. Prepara i dati (conversione binario -> base64)
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
+        # Se c'è un dato binario, codificalo in base64
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
@@ -78,30 +82,45 @@ def salva_stato_completo():
         "edits": st.session_state.edits
     }
     
+    # 5. Salva nel browser
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
+    """
+    Recupera i dati usando la chiave salvata nel session_state (se esiste)
+    e riconverte le immagini da base64 a binario.
+    """
     # 1. Verifica se esiste la chiave globale generata dall'ultimo salvataggio
     if "storage_key" not in st.session_state:
         return False
     
-    # 2. Usa QUELLA chiave per istanziare il componente
+    # 2. Usa ESATTAMENTE quella chiave per istanziare il componente
     localS = LocalStorage(key=st.session_state.storage_key)
     dati = localS.getItem("imprendo_dati")
     
+    # 3. Se troviamo dati, aggiorniamo il session_state
     if dati:
+        # Gestione eventuale wrapper della libreria
+        if isinstance(dati, dict) and "imprendo_dati" in dati:
+            dati = dati["imprendo_dati"]
+            
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
         storico_recuperato = []
         for item in dati.get("storico_report", []):
             item_copy = item.copy()
+            # Riconverti da base64 a binario se necessario
             if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
-                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+                try:
+                    item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+                except Exception:
+                    pass # Se la decodifica fallisce, lascia il dato così com'è
             storico_recuperato.append(item_copy)
             
         st.session_state.storico_report = storico_recuperato
         return True
+        
     return False
 
 
