@@ -797,8 +797,21 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 # APP PRINCIPALE
 
-# 1. Inizializzazione basi
-recupera_stato_completo()
+# --- INIZIALIZZAZIONE FORZATA (DEVE ESSERE IN CIMA) ---
+if "anagrafica" not in st.session_state:
+    st.session_state.anagrafica = {}
+    recupera_stato_completo() 
+
+# Assicuriamoci che esistano le chiavi base per evitare KeyError
+chiavi_base = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
+               "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
+for k in chiavi_base:
+    if k not in st.session_state.anagrafica:
+        st.session_state.anagrafica[k] = ""
+
+if "anagrafica_version" not in st.session_state:
+    st.session_state.anagrafica_version = 0
+
 
 # --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
