@@ -50,21 +50,21 @@ def resetta_tutto_il_sistema():
     if "ls_instance" in st.session_state:
         del st.session_state.ls_instance
 
-# Questa funzione gestisce la chiave in modo sicuro
-def get_storage():
-    # Se non esiste ancora una chiave, ne crea una casuale e la salva
-    if "storage_key" not in st.session_state:
-        st.session_state.storage_key = f"storage_{random.randint(1000, 9999)}"
-    
-    # Crea l'istanza se non esiste, usando la chiave salvata
-    if "ls_instance" not in st.session_state:
-        st.session_state.ls_instance = LocalStorage(key=st.session_state.storage_key)
-        
-    return st.session_state.ls_instance
+
+
+
 
 def salva_stato_completo():
-    localS = get_storage() # Recupera l'istanza con la chiave giusta
+    # 1. Crea la chiave casuale AD OGNI CHIAMATA (come hai chiesto)
+    nuova_chiave = f"storage_{random.randint(10000, 99999)}"
     
+    # 2. La salva nella variabile globale (session_state)
+    st.session_state.storage_key = nuova_chiave
+    
+    # 3. Crea l'istanza usando la chiave appena generata
+    localS = LocalStorage(key=nuova_chiave)
+    
+    # 4. Prepara i dati
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
@@ -77,10 +77,16 @@ def salva_stato_completo():
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
+    
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    localS = get_storage() # Recupera LA STESSA istanza con la stessa chiave
+    # 1. Verifica se esiste la chiave globale generata dall'ultimo salvataggio
+    if "storage_key" not in st.session_state:
+        return False
+    
+    # 2. Usa QUELLA chiave per istanziare il componente
+    localS = LocalStorage(key=st.session_state.storage_key)
     dati = localS.getItem("imprendo_dati")
     
     if dati:
