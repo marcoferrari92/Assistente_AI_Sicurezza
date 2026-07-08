@@ -1081,7 +1081,6 @@ if utente_connesso:
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
                         for i, p in enumerate(punti_totali, start=1):
-                            # Creiamo una riga per il punto critico
                             c_punto1, c_punto2 = st.columns([0.9, 0.1])
                             
                             with c_punto1:
@@ -1090,11 +1089,13 @@ if utente_connesso:
                                     st.session_state.edits[key_punto] = p['commento']
                                     salva_stato_completo()
                                 
+                                # --- CORREZIONE: CHIAVE STATICA ---
+                                # Rimosso _v{ver} dalla chiave
                                 st.session_state.edits[key_punto] = st.text_area(
                                     f"{i}. {p['elemento']} ({p['oggetto']})",
                                     value=st.session_state.edits[key_punto],
                                     height=130,
-                                    key=f"widget_{key_punto}_v{ver}",
+                                    key=key_punto, # <--- CHIAVE STATICA
                                     on_change=salva_stato_completo
                                 )
                             
