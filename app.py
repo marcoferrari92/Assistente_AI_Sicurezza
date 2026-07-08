@@ -989,17 +989,18 @@ if utente_connesso:
                         # 1. PULSANTI DI SISTEMA (Spostati in alto per evitare conflitti)
                         c1, c2, c3, c4 = st.columns(4)
 
-                        if st.button("🗑️ Elimina", key=f"del_button_{idx}"):
-                            # 1. Rimuovi i dati
-                            del st.session_state.storico_report[idx]
-                            
-                            # 2. Pulisci le chiavi dei widget associati a quell'indice
-                            chiavi_da_rimuovere = [k for k in st.session_state.keys() if f"_{idx}" in k]
-                            for k in chiavi_da_rimuovere:
-                                del st.session_state[k]
+                        with c1:
+                            if st.button("🗑️ Elimina", key=f"del_button_{idx}"):
+                                # 1. Rimuovi i dati
+                                del st.session_state.storico_report[idx]
                                 
-                            salva_stato_completo()
-                            st.rerun()
+                                # 2. Pulisci le chiavi dei widget associati a quell'indice
+                                chiavi_da_rimuovere = [k for k in st.session_state.keys() if f"_{idx}" in k]
+                                for k in chiavi_da_rimuovere:
+                                    del st.session_state[k]
+                                    
+                                salva_stato_completo()
+                                st.rerun()
 
                         # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
                         #     st.session_state.active_recorder = {"idx": idx, "mode": "rework"}
