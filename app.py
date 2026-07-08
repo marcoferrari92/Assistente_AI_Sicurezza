@@ -23,21 +23,20 @@ from streamlit_local_storage import LocalStorage
 
 def salva_stato_completo():
     localS = LocalStorage()
+    storico_da_salvare = []
     
-    # Creiamo una lista di appoggio solo per il JSON del LocalStorage
-    storico_salvabile = []
     for item in st.session_state.storico_report:
-        # Copiamo l'item ed eliminiamo i bytes SOLO nella copia
-        item_copy = {k: v for k, v in item.items() if k != "bytes"}
-        storico_salvabile.append(item_copy)
+        item_copy = item.copy()
+        # Se ci sono bytes, trasformali in stringa Base64
+        if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
+            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+        storico_da_salvare.append(item_copy)
 
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico_salvabile,
+        "storico_report": storico_da_salvare,
         "edits": st.session_state.edits
     }
-    
-    # Questo ora non crasha perché i bytes non vengono inviati al LocalStorage
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
@@ -45,13 +44,18 @@ def recupera_stato_completo():
     dati = localS.getItem("imprendo_dati")
     
     if dati:
-        # Se la libreria incapsula i dati, estraili
-        if "imprendo_dati" in dati:
-            dati = dati["imprendo_dati"]
-            
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
-        st.session_state.storico_report = dati.get("storico_report", [])
+        
+        storico_recuperato = []
+        for item in dati.get("storico_report", []):
+            item_copy = item.copy()
+            # Se è una stringa Base64, riportala a bytes
+            if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
+                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+            storico_recuperato.append(item_copy)
+            
+        st.session_state.storico_report = storico_recuperato
         return True
     return False
 
