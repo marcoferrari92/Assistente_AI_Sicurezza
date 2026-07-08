@@ -23,20 +23,21 @@ from streamlit_local_storage import LocalStorage
 
 def salva_stato_completo():
     localS = LocalStorage()
-    # Creiamo una copia dei dati ESCLUDENDO i bytes delle immagini
-    storico_senza_immagini = []
+    
+    # Creiamo una lista di appoggio solo per il JSON del LocalStorage
+    storico_salvabile = []
     for item in st.session_state.storico_report:
-        item_copy = item.copy()
-        # Rimuoviamo la chiave 'bytes' prima di salvare
-        if "bytes" in item_copy:
-            del item_copy["bytes"]
-        storico_senza_immagini.append(item_copy)
+        # Copiamo l'item ed eliminiamo i bytes SOLO nella copia
+        item_copy = {k: v for k, v in item.items() if k != "bytes"}
+        storico_salvabile.append(item_copy)
 
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico_senza_immagini,
+        "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
+    
+    # Questo ora non crasha perché i bytes non vengono inviati al LocalStorage
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
@@ -44,14 +45,13 @@ def recupera_stato_completo():
     dati = localS.getItem("imprendo_dati")
     
     if dati:
+        # Se la libreria incapsula i dati, estraili
         if "imprendo_dati" in dati:
             dati = dati["imprendo_dati"]
             
         st.session_state.anagrafica = dati.get("anagrafica", {})
-        # ATTENZIONE: qui lo storico recuperato non avrà i 'bytes'. 
-        # Dovrai gestire il fatto che le immagini risultino mancanti o ricaricarle.
-        st.session_state.storico_report = dati.get("storico_report", [])
         st.session_state.edits = dati.get("edits", {})
+        st.session_state.storico_report = dati.get("storico_report", [])
         return True
     return False
 
@@ -897,7 +897,7 @@ if utente_connesso:
                             # L'immagine non è nello storico? Usa un placeholder o salta
                             st.warning("Immagine non caricata nello storico")
                             continue
-                        
+
                         # 2. Rendiamo l'immagine cliccabile (al posto di st.image)
                         # Nota: dobbiamo passare l'immagine PIL (img_display)
                         click_data = streamlit_image_coordinates(
