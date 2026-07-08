@@ -891,7 +891,12 @@ if utente_connesso:
                         
                         # 2. IMMAGINE INTERATTIVA
                         # 1. Prepariamo l'immagine
-                        img_display = disegna_punti_critici(data["bytes"], punti_totali, abilita_marker=mostra_marker)
+                        if "bytes" in data:
+                            img_display = disegna_punti_critici(data["bytes"], punti_totali, abilita_marker=mostra_marker)
+                        else:
+                            # L'immagine non è nello storico? Usa un placeholder o salta
+                            st.warning("Immagine non caricata nello storico")
+                            continue
                         
                         # 2. Rendiamo l'immagine cliccabile (al posto di st.image)
                         # Nota: dobbiamo passare l'immagine PIL (img_display)
