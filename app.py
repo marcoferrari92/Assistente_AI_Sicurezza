@@ -1149,13 +1149,11 @@ if utente_connesso:
                             "città": dati.get("città", ""),
                             "provincia": dati.get("provincia", "")
                         })
-
-                        # Salviamo lo stato per backup
-                        salva_stato_completo()
                         
                         st.session_state.last_anagrafica_hash = audio_hash
                         set_bg_color("#b3ff99")
                         time.sleep(2)
+                        salva_stato_completo()
                         st.rerun()
 
             # 2. Campi di input (uno sotto l'altro)
