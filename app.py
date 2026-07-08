@@ -58,17 +58,16 @@ def resetta_tutto_il_sistema():
     st.toast("Sistema resettato correttamente!", icon="🔄")
 
 def get_ls(chiave):
-    # Inizializza il registro se non esiste
-    if "ls_instance" not in st.session_state:
-        st.session_state.ls_instance = None
-        st.session_state.ls_key = None
-    
-    # Se la chiave è cambiata (o non è ancora stata creata), istanzia il nuovo oggetto
-    if st.session_state.ls_key != chiave:
-        st.session_state.ls_instance = LocalStorage(key=chiave)
-        st.session_state.ls_key = chiave
+    # Inizializza il registro come dizionario se non esiste
+    if "ls_registry" not in st.session_state:
+        st.session_state.ls_registry = {}
         
-    return st.session_state.ls_instance
+    # Se l'istanza per questa specifica chiave non esiste, creala
+    if chiave not in st.session_state.ls_registry:
+        st.session_state.ls_registry[chiave] = LocalStorage(key=chiave)
+        
+    # Ritorna l'istanza specifica per quella chiave
+    return st.session_state.ls_registry[chiave]
 
 def salva_stato_completo():
     # 1. Recupera la chiave dal Master Pointer (o generala)
