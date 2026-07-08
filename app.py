@@ -22,16 +22,20 @@ from streamlit_local_storage import LocalStorage
 
 
 
-# 1. Registro unico basato su LocalStorage
+
+# Metti questa istanza fuori, come variabile globale del modulo
+_storage_cache = {}
+
 def get_ls(chiave):
-    if "ls_registry" not in st.session_state:
-        st.session_state.ls_registry = {}
+    # Usiamo un dizionario locale al modulo, NON nel session_state 
+    # per evitare che il componente venga ricreato durante i rerun
+    global _storage_cache
+    
+    if chiave not in _storage_cache:
+        # Questa riga viene eseguita SOLO UNA VOLTA per chiave
+        _storage_cache[chiave] = LocalStorage(key=chiave)
         
-    if chiave not in st.session_state.ls_registry:
-        # Usiamo LocalStorage come in origine
-        st.session_state.ls_registry[chiave] = LocalStorage(key=chiave)
-        
-    return st.session_state.ls_registry[chiave]
+    return _storage_cache[chiave]
 
 # 2. Funzione di reset
 def resetta_tutto_il_sistema():
@@ -54,18 +58,17 @@ def resetta_tutto_il_sistema():
 
 # 3. Salvataggio
 def salva_stato_completo():
-    # Usiamo direttamente LocalStorage (come avevi originariamente)
-    # Senza registri complessi o librerie mischiate
-    master = LocalStorage(key="MASTER_POINTER")
+    # USA IL GET_LS: NON istanziare LocalStorage direttamente
+    master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
     if not chiave_attuale:
         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
         master.setItem("chiave_valida", chiave_attuale)
     
-    localS = LocalStorage(key=chiave_attuale)
+    localS = get_ls(chiave_attuale)
     
-    # CONVERSIONE BYTES -> BASE64
+    # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
@@ -918,15 +921,23 @@ if utente_connesso:
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE (REWORK/INTEGRAZIONE) ---
     with tab2:
         if st.session_state.storico_report:
+            # Usiamo un'enumerazione per avere un indice pulito
             for idx, data in enumerate(st.session_state.storico_report):
+                
+                # 1. KEY UNIVOCA: Fondamentale per far capire a Streamlit quale widget stai eliminando
+                # L'hash garantisce che se il contenuto cambia, il widget viene forzato al refresh
+                item_hash = hash(str(data))
+                expander_key = f"expander_{idx}_{item_hash}"
+                
                 nome_file = data["nome_file"]
                 report = data["report"]
                 ver = data.get("version", 1) 
-                punti_totali = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
                 titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
                 
-                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True):
+                # 2. KEY APPLICATA: Aggiunta la chiave al componente expander
+                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=expander_key):
                     col1, col2 = st.columns([1, 1])
+                    
                     with col1:
                         
                         # 2. IMMAGINE INTERATTIVA
@@ -983,8 +994,15 @@ if utente_connesso:
                         # 1. PULSANTI DI SISTEMA (Spostati in alto per evitare conflitti)
                         c1, c2, c3, c4 = st.columns(4)
 
-                        if c1.button("🗑️ Elimina", key=f"del_{idx}"):
+                        if st.button("🗑️ Elimina", key=f"del_{idx}_{hash(str(data))}"):
+                            # 1. Rimuovi dalla memoria
                             del st.session_state.storico_report[idx]
+                            
+                            # 2. SALVATAGGIO PULITO: 
+                            # Solo dopo aver rimosso l'elemento, salviamo lo stato.
+                            salva_stato_completo()
+                            
+                            # 3. FORZA IL RERUN
                             st.rerun()
 
                         if c2.button("🔄 Rifai", key=f"redo_{idx}"):
