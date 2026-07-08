@@ -1224,49 +1224,50 @@ if utente_connesso:
 
 
         with st.expander("📝 Commessa e Oggetto"):
-            audio_commessa = mic_recorder(key="rec_commessa", start_prompt="🎤", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
-            
-            if audio_commessa:
-                audio_hash_c = hash(str(audio_commessa['bytes']))
-                if st.session_state.get("last_commessa_hash") != audio_hash_c:
-                    with st.spinner("Elaborazione commessa..."):
-                        set_bg_color("#D0AD00")
-                        dati_c = elabora_anagrafica_ai(audio_commessa['bytes'])
-                        
-                        st.session_state.anagrafica.update({
-                            "commessa": dati_c.get("commessa", ""),
-                            "oggetto": dati_c.get("oggetto", "")
-                        })
-                        
-                        # INCREMENTIAMO IL SALT per forzare il refresh anche qui
-                        st.session_state.anagrafica_version += 1
-                        
-                        st.session_state.last_commessa_hash = audio_hash_c
-                        set_bg_color("#b3ff99")
-                        time.sleep(2)
-                        salva_stato_completo()
-                        st.rerun()
-
-            # 2. Widget con Salt (COPIATO ESATTAMENTE DAL BLOCCO CHE FUNZIONA)
+            # Recuperiamo il salt corrente
             salt = st.session_state.get("anagrafica_version", 0)
-            
-            # Widget Commessa
-            key_commessa = f"widget_commessa_{salt}"
-            st.session_state.anagrafica["commessa"] = st.text_area(
-                "Commessa", 
-                value=st.session_state.anagrafica.get("commessa", ""),
-                key=key_commessa,
-                on_change=salva_stato_completo
-            )
-            
-            # Widget Oggetto
-            key_oggetto = f"widget_oggetto_{salt}"
-            st.session_state.anagrafica["oggetto"] = st.text_area(
-                "Oggetto dei lavori", 
-                value=st.session_state.anagrafica.get("oggetto", ""),
-                key=key_oggetto,
-                on_change=salva_stato_completo
-            )
+
+            # Lista dei campi
+            campi_commessa = [
+                ("commessa", "Commessa", "rec_commessa", "last_commessa_hash"),
+                ("oggetto", "Oggetto dei lavori", "rec_oggetto", "last_oggetto_hash")
+            ]
+
+            for campo_id, label, key_rec, key_hash in campi_commessa:
+                with st.container():
+                    # 1. Registratore specifico per il campo
+                    audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
+                    
+                    # 2. Logica di elaborazione
+                    if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
+                        current_hash = hash(str(audio_data['bytes']))
+                        if st.session_state.get(key_hash) != current_hash:
+                            with st.spinner(f"Elaborazione {label}..."):
+                                set_bg_color("#D0AD00")
+                                
+                                # Qui estraiamo il dato specifico
+                                dati_c = elabora_anagrafica_ai(audio_data['bytes'])
+                                st.session_state.anagrafica[campo_id] = dati_c.get(campo_id, "")
+                                
+                                st.session_state[key_hash] = current_hash
+                                
+                                # INCREMENTIAMO IL SALT (forza il refresh di TUTTO il tab 3)
+                                st.session_state.anagrafica_version += 1
+                                
+                                salva_stato_completo()
+                                set_bg_color("#b3ff99")
+                                time.sleep(1)
+                                st.rerun()
+
+                    # 3. Widget con chiave dinamica
+                    key_widget = f"widget_{campo_id}_{salt}"
+                    
+                    st.session_state.anagrafica[campo_id] = st.text_area(
+                        label, 
+                        value=st.session_state.anagrafica.get(campo_id, ""),
+                        key=key_widget,
+                        on_change=salva_stato_completo
+                    )
 
 
         
