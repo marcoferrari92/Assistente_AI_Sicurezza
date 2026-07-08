@@ -24,7 +24,7 @@ from streamlit_local_storage import LocalStorage
 
 
 def salva_stato_completo():
-    localS = LocalStorage()
+    #localS = LocalStorage()
     
     # Creiamo una copia sicura dello storico per non alterare l'originale
     storico_sicuro = []
@@ -43,7 +43,6 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    localS = LocalStorage()
     dati = localS.getItem("imprendo_dati")
     
     if dati:
@@ -750,10 +749,12 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 # APP PRINCIPALE
 
+
 recupera_stato_completo()
 
 # --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
+localS = LocalStorage()
 
 set_global_styles()
 
