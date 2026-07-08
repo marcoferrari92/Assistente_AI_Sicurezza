@@ -1200,6 +1200,7 @@ if utente_connesso:
                     key=key_provincia
                 )
             salva_stato_completo()
+            st.rerun()
 
 
         with st.expander("📝 Commessa e Oggetto"):
