@@ -23,26 +23,14 @@ from streamlit_local_storage import LocalStorage
 
 
 def get_ls(chiave):
-    # 1. Inizializzazione registro
     if "ls_registry" not in st.session_state:
         st.session_state.ls_registry = {}
         
-    # 2. Se l'istanza non esiste, creala
     if chiave not in st.session_state.ls_registry:
-        try:
-            # Stiamo usando Storage (alias di SessionStorage)
-            instance = Storage(key=chiave)
-            st.session_state.ls_registry[chiave] = instance
-        except Exception as e:
-            st.error(f"Errore critico inizializzazione storage '{chiave}': {e}")
-            return None
-            
-    # 3. Ritorna l'istanza solo se esiste ed è valida
-    master_or_storage = st.session_state.ls_registry.get(chiave)
-    if master_or_storage is None:
-        st.error(f"Storage '{chiave}' non disponibile.")
-    
-    return master_or_storage
+        # Se usi streamlit_browser_storage, l'istanza si comporta come un dizionario
+        st.session_state.ls_registry[chiave] = Storage(key=chiave)
+        
+    return st.session_state.ls_registry[chiave]
 
 def resetta_tutto_il_sistema():
     # 1. Pulisce la RAM
