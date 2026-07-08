@@ -989,15 +989,16 @@ if utente_connesso:
                         # 1. PULSANTI DI SISTEMA (Spostati in alto per evitare conflitti)
                         c1, c2, c3, c4 = st.columns(4)
 
-                        if st.button("🗑️ Elimina", key=f"del_{idx}_{hash(str(data))}"):
-                            # 1. Rimuovi dalla memoria
+                        if st.button("🗑️ Elimina", key=f"del_button_{idx}"):
+                            # 1. Rimuovi i dati
                             del st.session_state.storico_report[idx]
                             
-                            # 2. SALVATAGGIO PULITO: 
-                            # Solo dopo aver rimosso l'elemento, salviamo lo stato.
+                            # 2. Pulisci le chiavi dei widget associati a quell'indice
+                            chiavi_da_rimuovere = [k for k in st.session_state.keys() if f"_{idx}" in k]
+                            for k in chiavi_da_rimuovere:
+                                del st.session_state[k]
+                                
                             salva_stato_completo()
-                            
-                            # 3. FORZA IL RERUN
                             st.rerun()
 
                         # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
@@ -1075,7 +1076,7 @@ if utente_connesso:
                             "Modifica il verbale:", 
                             value=valore_attuale, 
                             height=230,
-                            key=key_testo,  # <-- CHIAVE STATICA (es. "edit_testo_0")
+                            key=key_testo,  
                             on_change=salva_stato_completo 
                         )
                         
@@ -1090,7 +1091,6 @@ if utente_connesso:
                                     salva_stato_completo()
                                 
                                 # --- CORREZIONE: CHIAVE STATICA ---
-                                # Rimosso _v{ver} dalla chiave
                                 st.session_state.edits[key_punto] = st.text_area(
                                     f"{i}. {p['elemento']} ({p['oggetto']})",
                                     value=st.session_state.edits[key_punto],
