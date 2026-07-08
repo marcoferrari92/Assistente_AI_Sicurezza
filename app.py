@@ -1097,21 +1097,25 @@ if utente_connesso:
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
-                        for i, p in enumerate(punti_totali, start=1):
+                        for p in punti_totali:
+                            # Se il punto non ha un id, crealo basandoti sulle coordinate o contenuto
+                            # Questo assicura che la key sia sempre la stessa anche se la lista cambia
+                            id_punto = f"{p.get('coordinate', {}).get('x')}_{p.get('coordinate', {}).get('y')}"
+                            
                             c_punto1, c_punto2 = st.columns([0.9, 0.1])
                             
                             with c_punto1:
-                                key_punto = f"edit_punto_{idx}_{i}"
+                                # Usa id_punto nella key invece dell'indice i
+                                key_punto = f"edit_punto_{idx}_{id_punto}"
+                                
                                 if key_punto not in st.session_state.edits:
                                     st.session_state.edits[key_punto] = p['commento']
-                                    salva_stato_completo()
                                 
-                                # --- CORREZIONE: CHIAVE STATICA ---
                                 st.session_state.edits[key_punto] = st.text_area(
-                                    f"{i}. {p['elemento']} ({p['oggetto']})",
+                                    f"{p['elemento']} ({p['oggetto']})",
                                     value=st.session_state.edits[key_punto],
                                     height=130,
-                                    key=key_punto, # <--- CHIAVE STATICA
+                                    key=key_punto, 
                                     on_change=salva_stato_completo
                                 )
                             
