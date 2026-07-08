@@ -890,7 +890,18 @@ if utente_connesso:
                     with col1:
                         
                         # 2. IMMAGINE INTERATTIVA
-                        img_display = disegna_punti_critici(data["bytes"], punti_totali, abilita_marker=mostra_marker)
+                        img_da_disegnare = data.get("bytes")
+                        if img_da_disegnare:
+                            # Caso standard: hai i bytes, disegna tutto
+                            img_display = disegna_punti_critici(img_da_disegnare, punti_totali, abilita_marker=mostra_marker)
+                        else:
+                            # Caso fallback: non hai i bytes (sono stati filtrati), 
+                            # ma forse hai il file caricato nel widget uploader o altro riferimento?
+                            # Se non c'è, carica un'immagine neutra per evitare il crash
+                            
+                            img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
+                            st.warning("Immagine originale non caricata in memoria.")
+
 
                         # 2. Rendiamo l'immagine cliccabile (al posto di st.image)
                         # Nota: dobbiamo passare l'immagine PIL (img_display)
