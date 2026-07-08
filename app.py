@@ -21,10 +21,17 @@ from streamlit_local_storage import LocalStorage
 
 
 
-
-
 # Metti questa istanza fuori, come variabile globale del modulo
 _storage_cache = {}
+
+if "needs_save" not in st.session_state:
+    st.session_state.needs_save = False
+
+# --- METTI QUESTA FUNZIONE CON LE ALTRE ---
+def trigger_save():
+    st.session_state.needs_save = True
+# ------------------------------------------
+
 
 def get_ls(chiave):
     # Usiamo un dizionario locale al modulo, NON nel session_state 
@@ -999,15 +1006,15 @@ if utente_connesso:
                             # 3. FORZA IL RERUN
                             st.rerun()
 
-                        if c2.button("🔄 Rifai", key=f"redo_{idx}"):
-                            st.session_state.active_recorder = {"idx": idx, "mode": "rework"}
-                            salva_stato_completo()
-                            st.rerun()
+                        # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
+                        #     st.session_state.active_recorder = {"idx": idx, "mode": "rework"}
+                        #     salva_stato_completo()
+                        #     st.rerun()
 
-                        if c3.button("➕ Integra", key=f"int_{idx}"):
-                            st.session_state.active_recorder = {"idx": idx, "mode": "integration"}
-                            salva_stato_completo()
-                            st.rerun()
+                        # if c3.button("➕ Integra", key=f"int_{idx}"):
+                        #     st.session_state.active_recorder = {"idx": idx, "mode": "integration"}
+                        #     salva_stato_completo()
+                        #     st.rerun()
                         
                         # NUOVO PULSANTE: Svuota solo le coordinate (i testi restano!)
 
@@ -1157,22 +1164,22 @@ if utente_connesso:
             st.session_state.anagrafica["mandataria"] = st.text_area(
                 "Mandataria/e", 
                 value=st.session_state.anagrafica.get("mandataria", ""),
-                on_change=salva_stato_completo
+                on_change=trigger_save
             )
             st.session_state.anagrafica["mandante"] = st.text_area(
                 "Mandante/i", 
                 value=st.session_state.anagrafica.get("mandante", ""),
-                on_change=salva_stato_completo
+                on_change=trigger_save
             )
             st.session_state.anagrafica["committente"] = st.text_input(
                 "Ragione Sociale Committente", 
                 value=st.session_state.anagrafica.get("committente", ""),
-                on_change=salva_stato_completo
+                on_change=trigger_save
             )
             st.session_state.anagrafica["indirizzo"] = st.text_input(
                 "Indirizzo", 
                 value=st.session_state.anagrafica.get("indirizzo", ""),
-                on_change=salva_stato_completo
+                on_change=trigger_save
             )
             
             c1, c2 = st.columns(2)
@@ -1390,4 +1397,10 @@ if utente_connesso:
                         else:
                             st.error(f"Errore: {msg}")
 
-        
+
+# --- METTI QUESTO ALLA FINE DEL FILE ---
+if st.session_state.needs_save:
+    salva_stato_completo()
+    st.session_state.needs_save = False
+    st.rerun() # Forza il refresh per confermare il salvataggio
+# ----------------------------------------
