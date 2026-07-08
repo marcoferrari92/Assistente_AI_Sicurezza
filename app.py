@@ -23,11 +23,18 @@ storage_instance = LocalStorage()
 
 
 
+import base64
+
 def salva_stato_completo():
-    storico = [
-        {**item, "bytes": base64.b64encode(item["bytes"]).decode()} 
-        for item in st.session_state.storico_report
-    ]
+    # Convertiamo i bytes in stringa base64 prima di salvare
+    storico = []
+    for item in st.session_state.storico_report:
+        item_copy = item.copy()
+        # Se sono bytes, codifichiamo
+        if isinstance(item_copy.get("bytes"), bytes):
+            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+        storico.append(item_copy)
+
     storage_instance.setItem("imprendo_dati", {
         "anagrafica": st.session_state.anagrafica,
         "storico_report": storico,
@@ -36,13 +43,22 @@ def salva_stato_completo():
 
 def recupera_stato_completo():
     dati = storage_instance.getItem("imprendo_dati")
-    if not dati: return False
+    if not dati: 
+        return False
+        
     st.session_state.anagrafica = dati.get("anagrafica", {})
     st.session_state.edits = dati.get("edits", {})
-    st.session_state.storico_report = [
-        {**item, "bytes": base64.b64decode(item["bytes"])} 
-        for item in dati.get("storico_report", [])
-    ]
+    
+    # Riconvertiamo le stringhe in bytes
+    storico = []
+    for item in dati.get("storico_report", []):
+        item_copy = item.copy()
+        # Se è una stringa base64, la decodifichiamo in bytes
+        if isinstance(item_copy.get("bytes"), str):
+            item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+        storico.append(item_copy)
+        
+    st.session_state.storico_report = storico
     return True
 
 
