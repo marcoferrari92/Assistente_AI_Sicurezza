@@ -21,45 +21,33 @@ from streamlit_local_storage import LocalStorage
 
 
 
-
-
-# 1. Inizializzazione (una sola volta)
-if "storage_instance" not in st.session_state:
-    st.session_state.storage_instance = LocalStorage(key="imprendo_dati_storage")
-
 def salva_stato_completo():
-    storico = []
-    for item in st.session_state.storico_report:
-        item_copy = item.copy()
-        if isinstance(item_copy.get("bytes"), bytes):
-            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
-        storico.append(item_copy)
-
-    # CORRETTO: usa st.session_state.storage_instance
-    st.session_state.storage_instance.setItem("imprendo_dati", {
+    localS = LocalStorage()
+    # Costruisci l'oggetto pulito
+    data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico,
+        "storico_report": st.session_state.storico_report,
         "edits": st.session_state.edits
-    })
+    }
+    # Salva una sola volta l'oggetto (senza re-incapsularlo)
+    localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    # CORRETTO: usa st.session_state.storage_instance
-    dati = st.session_state.storage_instance.getItem("imprendo_dati")
-    if not dati: 
-        return False
-        
-    st.session_state.anagrafica = dati.get("anagrafica", {})
-    st.session_state.edits = dati.get("edits", {})
+    localS = LocalStorage()
+    dati = localS.getItem("imprendo_dati")
     
-    storico = []
-    for item in dati.get("storico_report", []):
-        item_copy = item.copy()
-        if isinstance(item_copy.get("bytes"), str):
-            item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
-        storico.append(item_copy)
-        
-    st.session_state.storico_report = storico
-    return True
+    # Se i dati esistono, puliamo la struttura se necessario
+    if dati:
+        # Se la libreria ti restituisce {"imprendo_dati": {...}}, estraiamo il contenuto reale
+        if "imprendo_dati" in dati:
+            dati = dati["imprendo_dati"]
+            
+        # Aggiorniamo lo stato
+        st.session_state.anagrafica = dati.get("anagrafica", {})
+        st.session_state.storico_report = dati.get("storico_report", [])
+        st.session_state.edits = dati.get("edits", {})
+        return True
+    return False
 
 
 def login():
@@ -748,7 +736,6 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 
 # APP PRINCIPALE
 
-
 recupera_stato_completo()
 
 # --- ORA CHIAMA IL LOGIN ---
@@ -779,16 +766,14 @@ set_bg_color(color, status_msg)
 if utente_connesso:
     
     if st.sidebar.button("Logout"):
-        # 1. Reset RAM
+        # 1. Reset
         st.session_state.user_data = None
         st.session_state.anagrafica = {}
         st.session_state.storico_report = []
-        st.session_state.edits = {}
         
-        # 2. Pulizia reale (usa l'istanza che abbiamo già creato in session_state)
-        # Se vuoi cancellare tutto il contenuto della chiave principale:
-        if "storage_instance" in st.session_state:
-            st.session_state.storage_instance.setItem("imprendo_dati", None)
+        # 2. Pulizia reale del LocalStorage
+        localS = LocalStorage()
+        localS.deleteAll() # Oppure localS.deleteItem("imprendo_dati")
         
         st.rerun()
 
