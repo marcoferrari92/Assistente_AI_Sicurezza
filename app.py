@@ -24,31 +24,26 @@ storage_instance = LocalStorage()
 
 
 def salva_stato_completo():
-    # Rimuovi: localS = LocalStorage()
-    
-    data = {
+    storico = [
+        {**item, "bytes": base64.b64encode(item["bytes"]).decode()} 
+        for item in st.session_state.storico_report
+    ]
+    storage_instance.setItem("imprendo_dati", {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": st.session_state.storico_report,
+        "storico_report": storico,
         "edits": st.session_state.edits
-    }
-    # Usa l'istanza creata all'inizio
-    storage_instance.setItem("imprendo_dati", data)
+    })
 
 def recupera_stato_completo():
-    # Rimuovi: localS = LocalStorage()
-    
-    # Usa l'istanza creata all'inizio
     dati = storage_instance.getItem("imprendo_dati")
-    
-    if dati:
-        if "imprendo_dati" in dati:
-            dati = dati["imprendo_dati"]
-            
-        st.session_state.anagrafica = dati.get("anagrafica", {})
-        st.session_state.storico_report = dati.get("storico_report", [])
-        st.session_state.edits = dati.get("edits", {})
-        return True
-    return False
+    if not dati: return False
+    st.session_state.anagrafica = dati.get("anagrafica", {})
+    st.session_state.edits = dati.get("edits", {})
+    st.session_state.storico_report = [
+        {**item, "bytes": base64.b64decode(item["bytes"])} 
+        for item in dati.get("storico_report", [])
+    ]
+    return True
 
 
 def login():
