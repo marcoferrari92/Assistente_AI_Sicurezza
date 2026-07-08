@@ -1156,48 +1156,51 @@ if utente_connesso:
                         salva_stato_completo()
                         st.rerun()
 
-            # 2. Campi di input (uno sotto l'altro)
-            key_mandataria = "widget_mandataria"
+            # 2. Campi di input con Chiavi Statiche e on_change
             st.session_state.anagrafica["mandataria"] = st.text_area(
                 "Mandataria/e", 
                 value=st.session_state.anagrafica.get("mandataria", ""),
-                key=key_mandataria
+                key="widget_anagrafica_mandataria",
+                on_change=salva_stato_completo
             )
-            key_mandanti = "widget_mandanti"
+            
             st.session_state.anagrafica["mandante"] = st.text_area(
                 "Mandante/i", 
                 value=st.session_state.anagrafica.get("mandante", ""),
-                key=key_mandanti
+                key="widget_anagrafica_mandante",
+                on_change=salva_stato_completo
             )
-            key_committente = "widget_committente"
+            
             st.session_state.anagrafica["committente"] = st.text_input(
                 "Ragione Sociale Committente", 
                 value=st.session_state.anagrafica.get("committente", ""),
-                key=key_committente
+                key="widget_anagrafica_committente",
+                on_change=salva_stato_completo
             )
-            key_indirizzo = "widget_indirizzo"
+            
             st.session_state.anagrafica["indirizzo"] = st.text_input(
                 "Indirizzo", 
                 value=st.session_state.anagrafica.get("indirizzo", ""),
-                key=key_indirizzo
+                key="widget_anagrafica_indirizzo",
+                on_change=salva_stato_completo
             )
             
             c1, c2 = st.columns(2)
             with c1:
-                key_citta = "widget_citta"
                 st.session_state.anagrafica["città"] = st.text_input(
                     "Città", 
                     value=st.session_state.anagrafica.get("città", ""),
-                    key=key_citta
+                    key="widget_anagrafica_citta",
+                    on_change=salva_stato_completo
                 )
             with c2:
-                key_provincia = "widget_provincia"
                 st.session_state.anagrafica["provincia"] = st.text_input(
                     "Provincia", 
                     value=st.session_state.anagrafica.get("provincia", ""),
-                    key=key_provincia
+                    key="widget_anagrafica_provincia",
+                    on_change=salva_stato_completo
                 )
-            salva_stato_completo()
+         
 
 
         with st.expander("📝 Commessa e Oggetto"):
