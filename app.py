@@ -22,49 +22,38 @@ from streamlit_local_storage import LocalStorage
 
 
 
+# 1. Registro unico basato su LocalStorage
 def get_ls(chiave):
     if "ls_registry" not in st.session_state:
         st.session_state.ls_registry = {}
         
     if chiave not in st.session_state.ls_registry:
-        # Se usi streamlit_browser_storage, l'istanza si comporta come un dizionario
-        st.session_state.ls_registry[chiave] = Storage(key=chiave)
+        # Usiamo LocalStorage come in origine
+        st.session_state.ls_registry[chiave] = LocalStorage(key=chiave)
         
     return st.session_state.ls_registry[chiave]
 
+# 2. Funzione di reset
 def resetta_tutto_il_sistema():
-    # 1. Pulisce la RAM
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
     st.session_state.edits = {}
     st.session_state.user_data = None
     
-    # 2. Pulizia fisica usando il registro
     master = get_ls("MASTER_POINTER")
-    chiave_da_cancellare = master.getItem("chiave_valida")
+    chiave = master.getItem("chiave_valida")
     
-    if chiave_da_cancellare:
+    if chiave:
         try:
-            storage_reale = get_ls(chiave_da_cancellare)
-            storage_reale.deleteItem("imprendo_dati")
-        except Exception:
-            pass
-            
-    # 3. Cancella il Master Pointer
-    try:
+            get_ls(chiave).deleteItem("imprendo_dati")
+        except: pass
         master.deleteItem("chiave_valida")
-    except Exception:
-        pass
             
-    # 4. Rimuovi variabili di controllo e pulisci il registro
-    if "storage_key" in st.session_state: del st.session_state.storage_key
-    if "ls_instance" in st.session_state: del st.session_state.ls_instance
-    st.session_state.ls_registry = {} # Svuota il dizionario dei widget
-        
-    st.toast("Sistema resettato correttamente!", icon="🔄")
+    st.session_state.ls_registry = {} # Pulisce il registro
+    st.toast("Sistema resettato!", icon="🔄")
 
+# 3. Salvataggio
 def salva_stato_completo():
-    # 1. Recupera o crea la chiave persistente usando il registro
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -72,50 +61,30 @@ def salva_stato_completo():
         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
         master.setItem("chiave_valida", chiave_attuale)
     
-    # 2. Salva i dati usando l'istanza gestita dal registro
     localS = get_ls(chiave_attuale)
     
-    storico_salvabile = []
-    for item in st.session_state.storico_report:
-        item_copy = item.copy()
-        if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
-            item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
-        storico_salvabile.append(item_copy)
-
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": storico_salvabile,
+        "storico_report": st.session_state.storico_report,
         "edits": st.session_state.edits
     }
-    
+    # LocalStorage richiede setItem
     localS.setItem("imprendo_dati", data)
 
+# 4. Recupero
 def recupera_stato_completo():
-    time.sleep(0.5)
-
-    # 1. Recupera la chiave dal Master Pointer tramite registro
     master = get_ls("MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
-    if not chiave_reale:
-        return False
+    if not chiave_reale: return False
         
-    # 2. Vai alla chiave trovata e carica i dati tramite registro
     localS = get_ls(chiave_reale)
     dati = localS.getItem("imprendo_dati")
-
+    
     if dati:
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
-        
-        storico_recuperato = []
-        for item in dati.get("storico_report", []):
-            item_copy = item.copy()
-            if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
-                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
-            storico_recuperato.append(item_copy)
-            
-        st.session_state.storico_report = storico_recuperato
+        st.session_state.storico_report = dati.get("storico_report", [])
         return True
     return False
 
