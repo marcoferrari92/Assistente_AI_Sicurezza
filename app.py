@@ -1118,8 +1118,7 @@ if utente_connesso:
 
     
     with tab3:
-        if "anagrafica" not in st.session_state:
-            st.session_state.anagrafica = {}
+
 
         with st.expander("👤 Anagrafiche"):
 
