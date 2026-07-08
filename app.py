@@ -23,27 +23,33 @@ from streamlit_local_storage import LocalStorage
 
 def salva_stato_completo():
     localS = LocalStorage()
-    # Costruisci l'oggetto pulito
+    # Creiamo una copia dei dati ESCLUDENDO i bytes delle immagini
+    storico_senza_immagini = []
+    for item in st.session_state.storico_report:
+        item_copy = item.copy()
+        # Rimuoviamo la chiave 'bytes' prima di salvare
+        if "bytes" in item_copy:
+            del item_copy["bytes"]
+        storico_senza_immagini.append(item_copy)
+
     data = {
         "anagrafica": st.session_state.anagrafica,
-        "storico_report": st.session_state.storico_report,
+        "storico_report": storico_senza_immagini,
         "edits": st.session_state.edits
     }
-    # Salva una sola volta l'oggetto (senza re-incapsularlo)
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
     localS = LocalStorage()
     dati = localS.getItem("imprendo_dati")
     
-    # Se i dati esistono, puliamo la struttura se necessario
     if dati:
-        # Se la libreria ti restituisce {"imprendo_dati": {...}}, estraiamo il contenuto reale
         if "imprendo_dati" in dati:
             dati = dati["imprendo_dati"]
             
-        # Aggiorniamo lo stato
         st.session_state.anagrafica = dati.get("anagrafica", {})
+        # ATTENZIONE: qui lo storico recuperato non avrà i 'bytes'. 
+        # Dovrai gestire il fatto che le immagini risultino mancanti o ricaricarle.
         st.session_state.storico_report = dati.get("storico_report", [])
         st.session_state.edits = dati.get("edits", {})
         return True
