@@ -22,12 +22,14 @@ from streamlit_local_storage import LocalStorage
 
 
 def salva_stato_completo():
-    localS = LocalStorage()
-    storico_da_salvare = []
+    # Assegna una chiave univoca basata sul tempo o un contatore 
+    # per evitare che Streamlit veda il duplicato come un conflitto
+    unique_key = f"storage_{time.time()}"
+    localS = LocalStorage(key=unique_key)
     
+    storico_da_salvare = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
-        # Se ci sono bytes, trasformali in stringa Base64
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_da_salvare.append(item_copy)
@@ -40,7 +42,10 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    localS = LocalStorage()
+    # Stessa logica per il recupero
+    unique_key = f"storage_{time.time()}"
+    localS = LocalStorage(key=unique_key)
+    
     dati = localS.getItem("imprendo_dati")
     
     if dati:
@@ -50,7 +55,6 @@ def recupera_stato_completo():
         storico_recuperato = []
         for item in dati.get("storico_report", []):
             item_copy = item.copy()
-            # Se è una stringa Base64, riportala a bytes
             if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
                 item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
             storico_recuperato.append(item_copy)
