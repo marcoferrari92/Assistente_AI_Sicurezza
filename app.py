@@ -1133,16 +1133,9 @@ if utente_connesso:
 
                         dati = elabora_anagrafica_ai(audio_data['bytes'])
                         
-                        # FIX: Controlliamo se i campi esistono e sono stringhe prima di usare .replace()
-                        # Usiamo str() per sicurezza per evitare che crashi se riceve numeri o altro
-                        
-                        mandataria = dati.get("mandataria")
-                        st.session_state.anagrafica["mandataria"] = str(mandataria).replace(", ", "\n") if mandataria else ""
-                        
-                        mandante = dati.get("mandante")
-                        st.session_state.anagrafica["mandante"] = str(mandante).replace(", ", "\n") if mandante else ""
-                        
-                        # Aggiorniamo anche gli altri campi
+                        # Aggiornamento dati
+                        st.session_state.anagrafica["mandataria"] = str(dati.get("mandataria", "")).replace(", ", "\n")
+                        st.session_state.anagrafica["mandante"] = str(dati.get("mandante", "")).replace(", ", "\n")
                         st.session_state.anagrafica.update({
                             "committente": dati.get("committente", ""),
                             "indirizzo": dati.get("indirizzo", ""),
@@ -1150,12 +1143,15 @@ if utente_connesso:
                             "provincia": dati.get("provincia", "")
                         })
                         
+                        # !!! QUESTO È QUELLO CHE MANCAVA !!!
+                        # Incrementiamo la versione per cambiare la chiave dei widget
+                        st.session_state.anagrafica_version += 1
+                        
                         st.session_state.last_anagrafica_hash = audio_hash
                         set_bg_color("#b3ff99")
                         time.sleep(2)
                         salva_stato_completo()
                         st.rerun()
-                        pass
 
             #DEBUG: stampa cosa vede Streamlit PRIMA dei campi
             st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
@@ -1180,27 +1176,34 @@ if utente_connesso:
             salt = st.session_state.anagrafica_version
             
             for campo_id, label, tipo in campi:
-                # La key ora include il 'salt'. Quando l'AI finisce, incrementiamo il salt.
-                key_widget = f"widget_{campo_id}_{salt}"
                 
-                if campo_id not in st.session_state.anagrafica:
-                    st.session_state.anagrafica[campo_id] = ""
+                # 1. Recuperiamo il valore aggiornato dal session_state
+                # Questo garantisce che leggiamo l'ultimo valore scritto dall'AI
+                valore_attuale = st.session_state.anagrafica.get(campo_id, "")
 
+                # 2. La key deve cambiare per forzare il refresh (come abbiamo detto)
+                key_widget = f"widget_{campo_id}_{st.session_state.get('anagrafica_version', 0)}"
+                
                 if tipo == "area":
-                    st.session_state.anagrafica[campo_id] = st.text_area(
+                    # Usiamo valore_attuale che è fresco di lettura dal session_state
+                    nuovo_valore = st.text_area(
                         label, 
-                        value=st.session_state.anagrafica[campo_id], 
+                        value=valore_attuale, 
                         height=130,
-                        key=key_widget, # <--- La key cambia quando l'AI aggiorna i dati
+                        key=key_widget,
                         on_change=salva_stato_completo 
                     )
                 else:
-                    st.session_state.anagrafica[campo_id] = st.text_input(
+                    nuovo_valore = st.text_input(
                         label, 
-                        value=st.session_state.anagrafica[campo_id], 
+                        value=valore_attuale, 
                         key=key_widget, 
                         on_change=salva_stato_completo 
                     )
+                
+                # 3. Aggiorniamo il session_state se l'utente ha scritto nel widget
+                if nuovo_valore != st.session_state.anagrafica[campo_id]:
+                    st.session_state.anagrafica[campo_id] = nuovo_valore
 
 
         with st.expander("📝 Commessa e Oggetto"):
