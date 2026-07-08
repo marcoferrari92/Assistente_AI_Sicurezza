@@ -1154,42 +1154,50 @@ if utente_connesso:
                         time.sleep(2)
                         salva_stato_completo()
                         st.rerun()
+                        pass
 
             
-            # Lista definita fuori dal loop
-            campi = [
-                ("mandataria", "Mandataria/e", "area"),
-                ("mandante", "Mandante/i", "area"),
-                ("committente", "Ragione Sociale Committente", "input"),
-                ("indirizzo", "Indirizzo", "input"),
-                ("città", "Città", "input"),
-                ("provincia", "Provincia", "input")
-            ]
+                        # Usiamo un dizionario di appoggio per evitare di ciclare se ti dà noia
+                        campi = [
+                            ("mandataria", "Mandataria/e", "area"),
+                            ("mandante", "Mandante/i", "area"),
+                            ("committente", "Ragione Sociale Committente", "input"),
+                            ("indirizzo", "Indirizzo", "input"),
+                            ("città", "Città", "input"),
+                            ("provincia", "Provincia", "input")
+                        ]
 
-            for campo_id, label, tipo in campi:
-                # 1. Inizializzazione (se l'AI non ha ancora scritto nulla)
-                if campo_id not in st.session_state.anagrafica:
-                    st.session_state.anagrafica[campo_id] = ""
+                        # DEBUG: stampa cosa vede Streamlit PRIMA dei campi
+                        st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
 
-                # 2. WIDGET CON CHIAVE STATICA (USIAMO campo_id direttamente)
-                # La key è "widget_" + campo_id
-                key_widget = f"widget_{campo_id}"
-                
-                if tipo == "area":
-                    st.session_state.anagrafica[campo_id] = st.text_area(
-                        label, 
-                        value=st.session_state.anagrafica[campo_id], 
-                        height=130,
-                        key=key_widget,  
-                        on_change=salva_stato_completo 
-                    )
-                else:
-                    st.session_state.anagrafica[campo_id] = st.text_input(
-                        label, 
-                        value=st.session_state.anagrafica[campo_id], 
-                        key=key_widget,  
-                        on_change=salva_stato_completo 
-                    )
+                        for chiave, label, tipo in campi:
+                            
+                            # FORZA L'INIZIALIZZAZIONE SE MANCA
+                            if "anagrafica" not in st.session_state:
+                                st.session_state.anagrafica = {}
+                            if chiave not in st.session_state.anagrafica:
+                                st.session_state.anagrafica[chiave] = ""
+
+                            key_widget = f"widget_{chiave}"
+                            
+                            if tipo == "area":
+                                # Scriviamo e leggiamo nello stesso posto
+                                valore = st.text_area(
+                                    label, 
+                                    value=st.session_state.anagrafica[chiave], 
+                                    key=key_widget,
+                                    on_change=salva_stato_completo
+                                )
+                            else:
+                                valore = st.text_input(
+                                    label, 
+                                    value=st.session_state.anagrafica[chiave], 
+                                    key=key_widget,
+                                    on_change=salva_stato_completo
+                                )
+                            
+                            # Aggiorna il session state col nuovo valore
+                            st.session_state.anagrafica[chiave] = valore
 
 
         with st.expander("📝 Commessa e Oggetto"):
