@@ -86,7 +86,9 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    # 1. Guarda nel MASTER_POINTER qual è la chiave da usare
+    
+    time.sleep(1)
+
     master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
@@ -96,6 +98,9 @@ def recupera_stato_completo():
     # 2. Vai alla chiave trovata e carica i dati
     localS = LocalStorage(key=chiave_reale)
     dati = localS.getItem("imprendo_dati")
+
+    # DEBUG: Stampiamo in console cosa succede
+    st.write(f"Recupero dati dalla chiave: {chiave_reale}, Dati trovati: {dati is not None}")
     
     if dati:
         # Recupero dati...
