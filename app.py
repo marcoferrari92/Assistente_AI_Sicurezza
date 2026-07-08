@@ -1155,7 +1155,7 @@ if utente_connesso:
                         st.rerun()
 
             #DEBUG: stampa cosa vede Streamlit PRIMA dei campi
-            st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
+            #st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
             
             # Lista definita fuori dal loop
             campi = [
