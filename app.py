@@ -21,17 +21,10 @@ from streamlit_local_storage import LocalStorage
 
 
 
+
+
 # Metti questa istanza fuori, come variabile globale del modulo
 _storage_cache = {}
-
-if "needs_save" not in st.session_state:
-    st.session_state.needs_save = False
-
-# --- METTI QUESTA FUNZIONE CON LE ALTRE ---
-def trigger_save():
-    st.session_state.needs_save = True
-# ------------------------------------------
-
 
 def get_ls(chiave):
     # Usiamo un dizionario locale al modulo, NON nel session_state 
@@ -937,7 +930,8 @@ if utente_connesso:
                 punti_totali = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
                 titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
                 
-                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True):
+                # Usa l'indice, che è costante finché l'elemento non viene rimosso
+                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{idx}"):
                     col1, col2 = st.columns([1, 1])
                     with col1:
                         
@@ -1062,24 +1056,26 @@ if utente_connesso:
                     with col2:
                         st.markdown("#### Analisi")
                         
+                        # 1. Inizializzazione dati (solo se mancano)
                         key_testo = f"edit_testo_{idx}"
-                        
-                        # Se è la prima volta, inizializza con la trascrizione dell'AI
                         if key_testo not in st.session_state.edits:
                             st.session_state.edits[key_testo] = data["trascrizione"]
-                            salva_stato_completo()
-                        
-                        # Aggiornamento forzato se il verbale dell'AI è cambiato dopo un rework
-                        if st.session_state.edits[key_testo] != data["trascrizione"]:
-                             st.session_state.edits[key_testo] = data["trascrizione"]
-                             salva_stato_completo()
-                        
-                        # LA CHIAVE DINAMICA _v{ver} FORZA IL RENDER DEL NUOVO TESTO
+
+                        # 2. Sincronizzazione: Se l'AI ha generato un nuovo testo (es. dopo un rework), 
+                        # aggiorniamo il valore SOLO SE l'utente non ha ancora iniziato a modificare manualmente
+                        # oppure se forziamo un reset.
+                        # Consiglio: non usare st.session_state.edits[key_testo] != data["trascrizione"] 
+                        # qui dentro se vuoi che l'utente possa editare senza che l'AI sovrascriva.
+                        # Fai l'aggiornamento solo quando chiami la funzione "rework" (nel Tab 2).
+
+                        # 3. WIDGET CON CHIAVE STATICA (La chiave NON DEVE dipendere da ver)
+                        valore_attuale = st.session_state.edits[key_testo]
+
                         st.session_state.edits[key_testo] = st.text_area(
                             "Modifica il verbale:", 
-                            value=st.session_state.edits[key_testo], 
+                            value=valore_attuale, 
                             height=230,
-                            key=f"widget_{key_testo}_v{ver}",
+                            key=key_testo,  # <-- CHIAVE STATICA (es. "edit_testo_0")
                             on_change=salva_stato_completo 
                         )
                         
@@ -1164,22 +1160,22 @@ if utente_connesso:
             st.session_state.anagrafica["mandataria"] = st.text_area(
                 "Mandataria/e", 
                 value=st.session_state.anagrafica.get("mandataria", ""),
-                on_change=trigger_save
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["mandante"] = st.text_area(
                 "Mandante/i", 
                 value=st.session_state.anagrafica.get("mandante", ""),
-                on_change=trigger_save
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["committente"] = st.text_input(
                 "Ragione Sociale Committente", 
                 value=st.session_state.anagrafica.get("committente", ""),
-                on_change=trigger_save
+                on_change=salva_stato_completo
             )
             st.session_state.anagrafica["indirizzo"] = st.text_input(
                 "Indirizzo", 
                 value=st.session_state.anagrafica.get("indirizzo", ""),
-                on_change=trigger_save
+                on_change=salva_stato_completo
             )
             
             c1, c2 = st.columns(2)
@@ -1397,10 +1393,4 @@ if utente_connesso:
                         else:
                             st.error(f"Errore: {msg}")
 
-
-# --- METTI QUESTO ALLA FINE DEL FILE ---
-if st.session_state.needs_save:
-    salva_stato_completo()
-    st.session_state.needs_save = False
-    st.rerun() # Forza il refresh per confermare il salvataggio
-# ----------------------------------------
+        
