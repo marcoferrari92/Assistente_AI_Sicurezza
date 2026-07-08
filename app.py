@@ -57,25 +57,30 @@ def resetta_tutto_il_sistema():
     # Feedback visivo opzionale (se vuoi metterlo nel segnaposto)
     st.toast("Sistema resettato correttamente!", icon="🔄")
 
-
-
-
-import streamlit as st
-import random
-import base64
-from streamlit_local_storage import LocalStorage
+def get_ls(chiave):
+    # Inizializza il registro se non esiste
+    if "ls_instance" not in st.session_state:
+        st.session_state.ls_instance = None
+        st.session_state.ls_key = None
+    
+    # Se la chiave è cambiata (o non è ancora stata creata), istanzia il nuovo oggetto
+    if st.session_state.ls_key != chiave:
+        st.session_state.ls_instance = LocalStorage(key=chiave)
+        st.session_state.ls_key = chiave
+        
+    return st.session_state.ls_instance
 
 def salva_stato_completo():
-    # 1. Genera o recupera la chiave persistente dal LocalStorage
-    master = LocalStorage(key="MASTER_POINTER")
+    # 1. Recupera la chiave dal Master Pointer (o generala)
+    master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
     if not chiave_attuale:
         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
         master.setItem("chiave_valida", chiave_attuale)
     
-    # 2. Salva i dati usando la chiave recuperata dal master
-    localS = LocalStorage(key=chiave_attuale)
+    # 2. Usa il tuo gestore per ottenere l'istanza
+    localS = get_ls(chiave_attuale)
     
     storico_salvabile = []
     for item in st.session_state.storico_report:
@@ -89,28 +94,23 @@ def salva_stato_completo():
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
-    
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
+    time.sleep(0.5)
     
-    time.sleep(1)
-
-    master = LocalStorage(key="MASTER_POINTER")
+    # 1. Recupera la chiave
+    master = get_ls("MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
     if not chiave_reale:
         return False
         
-    # 2. Vai alla chiave trovata e carica i dati
-    localS = LocalStorage(key=chiave_reale)
+    # 2. Usa il tuo gestore per ottenere l'istanza
+    localS = get_ls(chiave_reale)
     dati = localS.getItem("imprendo_dati")
-
-    # DEBUG: Stampiamo in console cosa succede
-    st.write(f"Recupero dati dalla chiave: {chiave_reale}, Dati trovati: {dati is not None}")
     
     if dati:
-        # Recupero dati...
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
