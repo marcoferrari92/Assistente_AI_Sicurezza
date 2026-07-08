@@ -22,54 +22,59 @@ from streamlit_local_storage import LocalStorage
 
 
 
+def get_ls(chiave):
+    # Usa Storage (SessionStorage) per evitare widget grafici duplicati
+    if "ls_registry" not in st.session_state:
+        st.session_state.ls_registry = {}
+        
+    if chiave not in st.session_state.ls_registry:
+        # Usiamo Storage (importato come alias di SessionStorage)
+        st.session_state.ls_registry[chiave] = Storage(key=chiave)
+        
+    return st.session_state.ls_registry[chiave]
+
 def resetta_tutto_il_sistema():
-    # 1. Pulisce la RAM (Reset stato dell'app)
+    # 1. Pulisce la RAM
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
     st.session_state.edits = {}
     st.session_state.user_data = None
     
-    # 2. Pulizia fisica nel LocalStorage
-    # Usiamo il metodo MASTER_POINTER per sapere cosa cancellare
-    master = LocalStorage(key="MASTER_POINTER")
+    # 2. Pulizia fisica usando il registro
+    master = get_ls("MASTER_POINTER")
     chiave_da_cancellare = master.getItem("chiave_valida")
     
-    # Se esiste una chiave puntata dal master, cancella il contenuto di quella chiave
     if chiave_da_cancellare:
         try:
-            storage_reale = LocalStorage(key=chiave_da_cancellare)
+            storage_reale = get_ls(chiave_da_cancellare)
             storage_reale.deleteItem("imprendo_dati")
         except Exception:
             pass
             
-    # 3. Cancella il Master Pointer stesso (così l'app non troverà più nulla al riavvio)
+    # 3. Cancella il Master Pointer
     try:
         master.deleteItem("chiave_valida")
     except Exception:
         pass
             
-    # 4. Rimuovi le variabili di controllo dal session_state
-    if "storage_key" in st.session_state:
-        del st.session_state.storage_key
-    if "ls_instance" in st.session_state:
-        del st.session_state.ls_instance
+    # 4. Rimuovi variabili di controllo e pulisci il registro
+    if "storage_key" in st.session_state: del st.session_state.storage_key
+    if "ls_instance" in st.session_state: del st.session_state.ls_instance
+    st.session_state.ls_registry = {} # Svuota il dizionario dei widget
         
-    # Feedback visivo opzionale (se vuoi metterlo nel segnaposto)
     st.toast("Sistema resettato correttamente!", icon="🔄")
 
-
-
 def salva_stato_completo():
-    # 1. Genera o recupera la chiave persistente dal LocalStorage
-    master = LocalStorage(key="MASTER_POINTER")
+    # 1. Recupera o crea la chiave persistente usando il registro
+    master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
     if not chiave_attuale:
         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
         master.setItem("chiave_valida", chiave_attuale)
     
-    # 2. Salva i dati usando la chiave recuperata dal master
-    localS = LocalStorage(key=chiave_attuale)
+    # 2. Salva i dati usando l'istanza gestita dal registro
+    localS = get_ls(chiave_attuale)
     
     storico_salvabile = []
     for item in st.session_state.storico_report:
@@ -87,24 +92,20 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
 
 def recupera_stato_completo():
-    
-    time.sleep(1)
+    time.sleep(0.5)
 
-    master = LocalStorage(key="MASTER_POINTER")
+    # 1. Recupera la chiave dal Master Pointer tramite registro
+    master = get_ls("MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
     if not chiave_reale:
         return False
         
-    # 2. Vai alla chiave trovata e carica i dati
-    localS = LocalStorage(key=chiave_reale)
+    # 2. Vai alla chiave trovata e carica i dati tramite registro
+    localS = get_ls(chiave_reale)
     dati = localS.getItem("imprendo_dati")
 
-    # DEBUG: Stampiamo in console cosa succede
-    st.write(f"Recupero dati dalla chiave: {chiave_reale}, Dati trovati: {dati is not None}")
-    
     if dati:
-        # Recupero dati...
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
@@ -118,7 +119,6 @@ def recupera_stato_completo():
         st.session_state.storico_report = storico_recuperato
         return True
     return False
-
 
 def login():
     if "user_data" not in st.session_state:
