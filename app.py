@@ -1159,38 +1159,50 @@ if utente_connesso:
                         st.rerun()
 
             # 2. Campi di input (uno sotto l'altro)
+            key_mandataria = "widget_mandataria"
             st.session_state.anagrafica["mandataria"] = st.text_area(
                 "Mandataria/e", 
                 value=st.session_state.anagrafica.get("mandataria", ""),
+                key=key_mandataria,
                 on_change=salva_stato_completo
             )
+            key_mandanti = "widget_mandanti"
             st.session_state.anagrafica["mandante"] = st.text_area(
                 "Mandante/i", 
                 value=st.session_state.anagrafica.get("mandante", ""),
+                key=key_mandanti,
                 on_change=salva_stato_completo
             )
+            key_committente = "widget_committente"
             st.session_state.anagrafica["committente"] = st.text_input(
                 "Ragione Sociale Committente", 
                 value=st.session_state.anagrafica.get("committente", ""),
+                key=key_committente,
                 on_change=salva_stato_completo
             )
+            key_indirizzo = "widget_indirizzo"
             st.session_state.anagrafica["indirizzo"] = st.text_input(
                 "Indirizzo", 
                 value=st.session_state.anagrafica.get("indirizzo", ""),
+                key=key_indirizzo,
                 on_change=salva_stato_completo
             )
             
             c1, c2 = st.columns(2)
             with c1:
+                key_citta = "widget_citta"
                 st.session_state.anagrafica["città"] = st.text_input(
                     "Città", 
                     value=st.session_state.anagrafica.get("città", ""),
+                    key=key_citta,
                     on_change=salva_stato_completo
                 )
             with c2:
+                key_provincia = "widget_provincia"
                 st.session_state.anagrafica["provincia"] = st.text_input(
                     "Provincia", 
                     value=st.session_state.anagrafica.get("provincia", ""),
+                    key=key_provincia,
                     on_change=salva_stato_completo
                 )
 
@@ -1216,15 +1228,18 @@ if utente_connesso:
                         time.sleep(2)
                         st.rerun()
 
+            key_commessa = "widget_commessa"
             st.session_state.anagrafica["commessa"] = st.text_area(
                 "Commessa", 
                 value=st.session_state.anagrafica.get("commessa", ""),
+                key=key_commessa,
                 on_change=salva_stato_completo
             )
-            
+            key_oggetto = "widget_oggetto"
             st.session_state.anagrafica["oggetto"] = st.text_area(
                 "Oggetto dei lavori", 
                 value=st.session_state.anagrafica.get("oggetto", ""),
+                key=key_oggetto,
                 on_change=salva_stato_completo
             )
         
@@ -1236,9 +1251,11 @@ if utente_connesso:
 
                 audio_attivita = mic_recorder(key="rec_attivita", start_prompt="🎤 Attività", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
                 
+                key_attivita = "widget_attivita"
                 st.session_state.anagrafica["attività"] = st.text_area(
                     "Attività di Cantiere", 
                     value=st.session_state.anagrafica.get("attività", ""),
+                    key=key_attivita,
                     on_change=salva_stato_completo
                 )
                 
@@ -1262,9 +1279,11 @@ if utente_connesso:
 
                 audio_coord = mic_recorder(key="rec_coord", start_prompt="🎤 Coordinamento", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
                 
+                key_coord = "widget_coord"
                 st.session_state.anagrafica["coordinamento"] = st.text_area(
                     "Coordinamento", 
                     value=st.session_state.anagrafica.get("coordinamento", ""),
+                    key=key_coord,
                     on_change=salva_stato_completo
                 )
                 
@@ -1288,9 +1307,11 @@ if utente_connesso:
 
                 audio_personale = mic_recorder(key="rec_personale", start_prompt="🎤 Personale", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
                 
+                key_personale = "widget_personale"
                 st.session_state.anagrafica["personale"] = st.text_area(
                     "Personale Presente", 
                     value=st.session_state.anagrafica.get("personale", ""),
+                    key=key_personale,
                     on_change=salva_stato_completo
                 )
                 
@@ -1313,9 +1334,11 @@ if utente_connesso:
             with st.container():
                 audio_verb = mic_recorder(key="rec_verbali", start_prompt="🎤 Verbali", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
                 
+                key_verbali = "widget_verbali"
                 st.session_state.anagrafica["verbali"] = st.text_area(
                     "Verbali di Prescrizione/Sospensione", 
                     value=st.session_state.anagrafica.get("verbali", ""),
+                    key=key_verbali,
                     on_change=salva_stato_completo
                 )
                 
