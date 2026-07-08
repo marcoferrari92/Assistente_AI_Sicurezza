@@ -779,14 +779,16 @@ set_bg_color(color, status_msg)
 if utente_connesso:
     
     if st.sidebar.button("Logout"):
-        # 1. Reset
+        # 1. Reset RAM
         st.session_state.user_data = None
         st.session_state.anagrafica = {}
         st.session_state.storico_report = []
+        st.session_state.edits = {}
         
-        # 2. Pulizia reale del LocalStorage
-        localS = LocalStorage()
-        localS.deleteAll() # Oppure localS.deleteItem("imprendo_dati")
+        # 2. Pulizia reale (usa l'istanza che abbiamo già creato in session_state)
+        # Se vuoi cancellare tutto il contenuto della chiave principale:
+        if "storage_instance" in st.session_state:
+            st.session_state.storage_instance.setItem("imprendo_dati", None)
         
         st.rerun()
 
