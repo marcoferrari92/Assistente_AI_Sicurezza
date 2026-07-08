@@ -798,18 +798,7 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
 # APP PRINCIPALE
 
 # 1. Inizializzazione basi
-if "storico_report" not in st.session_state:
-    st.session_state.storico_report = []
-if "anagrafica" not in st.session_state:
-    st.session_state.anagrafica = {}
-if "edits" not in st.session_state:
-    st.session_state.edits = {}
-
-# 2. RECUPERO (deve essere l'unico punto in cui lo stato viene popolato)
-# Se recupera_stato_completo() restituisce True, NON sovrascrivere nulla dopo!
-if "recupero_fatto" not in st.session_state:
-    recupera_stato_completo()
-    st.session_state.recupero_fatto = True
+recupera_stato_completo()
 
 # --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
