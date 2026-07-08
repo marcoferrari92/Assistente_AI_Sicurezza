@@ -23,33 +23,32 @@ from streamlit_local_storage import LocalStorage
 
 
 def resetta_tutto_il_sistema():
-    # 1. Pulisce la RAM (fondamentale)
+    # 1. Pulisce la RAM
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
     st.session_state.edits = {}
+    st.session_state.user_data = None
     
-    # 2. Pulizia chirurgica del LocalStorage
+    # 2. Pulizia del LocalStorage usando la CHIAVE DINAMICA corrente
+    if "ls_instance" in st.session_state and "storage_key" in st.session_state:
+        # Recuperiamo la chiave corretta che stiamo usando in questo istante
+        chiave_corrente = st.session_state.storage_key
+        
+        try:
+            # Cancelliamo la chiave dinamica specifica che è attiva ora
+            st.session_state.ls_instance.deleteItem("imprendo_dati") # Cancella il contenuto
+            # Se la libreria permette di rimuovere la chiave intera:
+            # st.session_state.ls_instance.deleteItem(chiave_corrente) 
+        except:
+            # Fallback
+            st.session_state.ls_instance.setItem("imprendo_dati", {})
+            
+    # IMPORTANTE: Resettiamo anche la chiave dinamica così alla prossima apertura 
+    # ne genera una nuova e siamo sicuri di essere "puliti"
+    if "storage_key" in st.session_state:
+        del st.session_state.storage_key
     if "ls_instance" in st.session_state:
-        localS = st.session_state.ls_instance
-        
-        # Recuperiamo tutte le chiavi attualmente presenti nel LocalStorage del browser
-        # Questa è la funzione standard per vedere cosa c'è dentro
-        all_keys = localS.getAllKeys() 
-        
-        # Se la libreria non ha getAllKeys(), dobbiamo conoscere i nomi.
-        # Poiché sappiamo che stiamo usando "imprendo_dati", cancelliamola.
-        # Se ne hai altre, aggiungile a questa lista.
-        chiavi_da_cancellare = ["imprendo_dati"] 
-        
-        for key in chiavi_da_cancellare:
-            try:
-                localS.deleteItem(key)
-            except:
-                # Se deleteItem fallisce, sovrascriviamo con un dizionario vuoto
-                localS.setItem(key, {})
-                
-    # 3. Riavvio per pulire completamente la sessione
-    st.rerun()
+        del st.session_state.ls_instance
 
 # Questa funzione gestisce la chiave in modo sicuro
 def get_storage():
