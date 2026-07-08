@@ -1230,14 +1230,11 @@ if utente_connesso:
                         salva_stato_completo()
                         st.rerun()
 
-            # Recuperiamo il salt corrente
+            # 2. Widget con Salt (COPIATO ESATTAMENTE DAL BLOCCO CHE FUNZIONA)
             salt = st.session_state.get("anagrafica_version", 0)
-
-            # Chiavi dinamiche con il salt
-            key_commessa = f"widget_commessa_{salt}"
-            key_oggetto = f"widget_oggetto_{salt}"
-
+            
             # Widget Commessa
+            key_commessa = f"widget_commessa_{salt}"
             st.session_state.anagrafica["commessa"] = st.text_area(
                 "Commessa", 
                 value=st.session_state.anagrafica.get("commessa", ""),
@@ -1246,125 +1243,65 @@ if utente_connesso:
             )
             
             # Widget Oggetto
+            key_oggetto = f"widget_oggetto_{salt}"
             st.session_state.anagrafica["oggetto"] = st.text_area(
                 "Oggetto dei lavori", 
                 value=st.session_state.anagrafica.get("oggetto", ""),
                 key=key_oggetto,
                 on_change=salva_stato_completo
             )
+
+
         
         # EXPANDER 3: ATTIVITÀ E PERSONALE
         with st.expander("🛠️ Attività e Personale", expanded=True):
     
-            # --- 1. ATTIVITÀ ---
             with st.container():
 
-                audio_attivita = mic_recorder(key="rec_attivita", start_prompt="🎤 Attività", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
-                
-                key_attivita = "widget_attivita"
-                st.session_state.anagrafica["attività"] = st.text_area(
-                    "Attività di Cantiere", 
-                    value=st.session_state.anagrafica.get("attività", ""),
-                    key=key_attivita,
-                    on_change=salva_stato_completo
-                )
-                
-                if audio_attivita and isinstance(audio_attivita, dict) and 'bytes' in audio_attivita:
-                    current_hash = hash(str(audio_attivita['bytes']))
-                    if st.session_state.get("last_attivita_hash") != current_hash:
-                        with st.spinner("Elaborazione attività..."):
-                            set_bg_color("#D0AD00")
-                            risultato = elabora_campo_tecnico_ai(audio_attivita['bytes'], "attività")
-                            st.session_state.anagrafica["attività"] = risultato
-                            st.session_state["last_attivita_hash"] = current_hash
-                            salva_stato_completo()
-                            # Reset del widget
-                            del st.session_state["rec_attivita"]
-                            set_bg_color("#b3ff99")
-                            time.sleep(2)
-                            st.rerun()
+                # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
+                salt = st.session_state.get("anagrafica_version", 0)
 
-            # --- 2. COORDINAMENTO---
-            with st.container():
+                # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
+                campi_tecnici = [
+                    ("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash"),
+                    ("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash"),
+                    ("personale", "Personale Presente", "rec_personale", "last_personale_hash"),
+                    ("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
+                ]
 
-                audio_coord = mic_recorder(key="rec_coord", start_prompt="🎤 Coordinamento", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
-                
-                key_coord = "widget_coord"
-                st.session_state.anagrafica["coordinamento"] = st.text_area(
-                    "Coordinamento", 
-                    value=st.session_state.anagrafica.get("coordinamento", ""),
-                    key=key_coord,
-                    on_change=salva_stato_completo
-                )
-                
-                if audio_coord and isinstance(audio_coord, dict) and 'bytes' in audio_coord:
-                    current_hash = hash(str(audio_coord['bytes']))
-                    if st.session_state.get("last_coord_hash") != current_hash:
-                        with st.spinner("Elaborazione coordinamento..."):
-                            set_bg_color("#D0AD00")
-                            risultato = elabora_campo_tecnico_ai(audio_coord['bytes'], "coordinamento")
-                            st.session_state.anagrafica["coordinamento"] = risultato
-                            st.session_state["last_coord_hash"] = current_hash
-                            salva_stato_completo()
-                            # Reset del widget
-                            del st.session_state["rec_coord"]
-                            set_bg_color("#b3ff99")
-                            time.sleep(2)
-                            st.rerun()
+                for campo_id, label, key_rec, key_hash in campi_tecnici:
+                    with st.container():
+                        # Registratore
+                        audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
+                        
+                        # Logica di elaborazione
+                        if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
+                            current_hash = hash(str(audio_data['bytes']))
+                            if st.session_state.get(key_hash) != current_hash:
+                                with st.spinner(f"Elaborazione {label}..."):
+                                    set_bg_color("#D0AD00")
+                                    
+                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
+                                    st.session_state.anagrafica[campo_id] = risultato
+                                    st.session_state[key_hash] = current_hash
+                                    
+                                    # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
+                                    st.session_state.anagrafica_version += 1
+                                    
+                                    salva_stato_completo()
+                                    set_bg_color("#b3ff99")
+                                    time.sleep(1)
+                                    st.rerun()
 
-            # --- 3. PERSONALE ---
-            with st.container():
-
-                audio_personale = mic_recorder(key="rec_personale", start_prompt="🎤 Personale", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
-                
-                key_personale = "widget_personale"
-                st.session_state.anagrafica["personale"] = st.text_area(
-                    "Personale Presente", 
-                    value=st.session_state.anagrafica.get("personale", ""),
-                    key=key_personale,
-                    on_change=salva_stato_completo
-                )
-                
-                if audio_personale and isinstance(audio_personale, dict) and 'bytes' in audio_personale:
-                    current_hash = hash(str(audio_personale['bytes']))
-                    if st.session_state.get("last_personale_hash") != current_hash:
-                        with st.spinner("Elaborazione personale..."):
-                            set_bg_color("#D0AD00")
-                            risultato = elabora_campo_tecnico_ai(audio_personale['bytes'], "personale")
-                            st.session_state.anagrafica["personale"] = risultato
-                            st.session_state["last_personale_hash"] = current_hash
-                            salva_stato_completo()
-                            # Reset del widget
-                            del st.session_state["rec_personale"]
-                            set_bg_color("#b3ff99")
-                            time.sleep(2)
-                            st.rerun()
-
-            # --- 4. VERBALI ---
-            with st.container():
-                audio_verb = mic_recorder(key="rec_verbali", start_prompt="🎤 Verbali", stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI")
-                
-                key_verbali = "widget_verbali"
-                st.session_state.anagrafica["verbali"] = st.text_area(
-                    "Verbali di Prescrizione/Sospensione", 
-                    value=st.session_state.anagrafica.get("verbali", ""),
-                    key=key_verbali,
-                    on_change=salva_stato_completo
-                )
-                
-                if audio_verb and isinstance(audio_verb, dict) and 'bytes' in audio_verb:
-                    current_hash = hash(str(audio_verb['bytes']))
-                    if st.session_state.get("last_verb_hash") != current_hash:
-                        with st.spinner("Elaborazione verbali..."):
-                            set_bg_color("#D0AD00")
-                            risultato = elabora_campo_tecnico_ai(audio_verb['bytes'], "verbali")
-                            st.session_state.anagrafica["verbali"] = risultato
-                            st.session_state["last_verb_hash"] = current_hash
-                            salva_stato_completo()
-                            del st.session_state["rec_verbali"]
-                            set_bg_color("#b3ff99")
-                            time.sleep(2)
-                            st.rerun()
+                        # Widget con chiave dinamica basata sul salt
+                        key_widget = f"widget_{campo_id}_{salt}"
+                        
+                        st.session_state.anagrafica[campo_id] = st.text_area(
+                            label, 
+                            value=st.session_state.anagrafica.get(campo_id, ""),
+                            key=key_widget,
+                            on_change=salva_stato_completo
+                        )
 
 
         with st.expander("📎 Allegati"):
