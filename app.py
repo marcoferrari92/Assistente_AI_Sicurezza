@@ -81,9 +81,19 @@ def salva_stato_completo():
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
-    
     localS.setItem("imprendo_dati", data)
-    st.write(f"DEBUG_SALVA: Sto scrivendo questo in LocalStorage: {st.session_state.anagrafica['mandataria']}")
+    
+    # --- DEBUG DI VERIFICA POST-SCRITTURA ---
+    dati_appena_scritti = localS.getItem("imprendo_dati")
+    if dati_appena_scritti:
+        mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
+        st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
+        if mandataria_scritta != st.session_state.anagrafica['mandataria']:
+            st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
+    else:
+        st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
+
+        
 
 # 4. Recupero
 def recupera_stato_completo():
