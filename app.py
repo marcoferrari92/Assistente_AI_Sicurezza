@@ -81,6 +81,11 @@ def salva_stato_completo():
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
+
+    # --- DEBUG QUI ---
+    print(f"DEBUG SALVATAGGIO: Scrivendo in {chiave_attuale} -> {data['anagrafica']}")
+    st.sidebar.info(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
+    # -----------------
     
     localS.setItem("imprendo_dati", data)
 
@@ -1160,7 +1165,7 @@ if utente_connesso:
                                 "città": dati.get("città", ""),
                                 "provincia": dati.get("provincia", "")
                             })
-                            
+
                             # !!! QUESTO È QUELLO CHE MANCAVA !!!
                             # Incrementiamo la versione per cambiare la chiave dei widget
                             st.session_state.anagrafica_version += 1
@@ -1202,8 +1207,7 @@ if utente_connesso:
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
-                        st.session_state.anagrafica_version += 1
-
+                        
 
         with st.expander("📝 Commessa e Oggetto"):
             with st.container():
