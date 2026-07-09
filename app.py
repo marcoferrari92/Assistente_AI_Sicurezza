@@ -83,6 +83,7 @@ def salva_stato_completo():
     }
     
     localS.setItem("imprendo_dati", data)
+    st.write(f"DEBUG_SALVA: Sto scrivendo questo in LocalStorage: {st.session_state.anagrafica['mandataria']}")
 
 # 4. Recupero
 def recupera_stato_completo():
