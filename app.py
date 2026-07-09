@@ -61,8 +61,45 @@ def resetta_tutto_il_sistema():
 
 
 
-def salva_stato_completo():
-    # USA IL GET_LS: NON istanziare LocalStorage direttamente
+# def salva_stato_completo():
+#     # USA IL GET_LS: NON istanziare LocalStorage direttamente
+#     master = get_ls("MASTER_POINTER")
+#     chiave_attuale = master.getItem("chiave_valida")
+    
+#     if not chiave_attuale:
+#         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
+#         master.setItem("chiave_valida", chiave_attuale)
+    
+#     localS = get_ls(chiave_attuale)
+    
+#     # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
+#     storico_salvabile = []
+#     for item in st.session_state.storico_report:
+#         item_copy = item.copy()
+#         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
+#             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+#         storico_salvabile.append(item_copy)
+
+#     data = {
+#         "anagrafica": st.session_state.anagrafica,
+#         "storico_report": storico_salvabile,
+#         "edits": st.session_state.edits
+#     }
+#     localS.setItem("imprendo_dati", data)
+    
+#     # --- DEBUG DI VERIFICA POST-SCRITTURA ---
+#     st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
+#     dati_appena_scritti = localS.getItem("imprendo_dati")
+#     if dati_appena_scritti:
+#         mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
+#         st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
+#         if mandataria_scritta != st.session_state.anagrafica['mandataria']:
+#             st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
+#     else:
+#         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
+
+
+def salva_stato_completo(anagrafica_input, storico_input, edits_input):
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -72,34 +109,26 @@ def salva_stato_completo():
     
     localS = get_ls(chiave_attuale)
     
-    # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
+    # Conversione bytes
     storico_salvabile = []
-    for item in st.session_state.storico_report:
+    for item in storico_input:
         item_copy = item.copy()
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
 
     data = {
-        "anagrafica": st.session_state.anagrafica,
+        "anagrafica": anagrafica_input, # Usa il dizionario passato come argomento
         "storico_report": storico_salvabile,
-        "edits": st.session_state.edits
+        "edits": edits_input
     }
+    
     localS.setItem("imprendo_dati", data)
     
-    # --- DEBUG DI VERIFICA POST-SCRITTURA ---
-    st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
-    dati_appena_scritti = localS.getItem("imprendo_dati")
-    if dati_appena_scritti:
-        mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
-        st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
-        if mandataria_scritta != st.session_state.anagrafica['mandataria']:
-            st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
-    else:
-        st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
+    # Debug rapido in sidebar
+    st.sidebar.error(f"DEBUG_SALVA: {anagrafica_input.get('mandataria')}")
 
-
-
+    
 
 def recupera_stato_completo():
     # --- DEBUG DI INIZIO ---
