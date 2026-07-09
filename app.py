@@ -111,6 +111,43 @@ def recupera_stato_completo():
         return True
     return False
 
+
+
+def log_sidebar_debug_completo():
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔍 DEBUG COMPLETO (LocalStorage)")
+    
+    master = get_ls("MASTER_POINTER")
+    chiave = master.getItem("chiave_valida")
+    st.sidebar.write(f"Chiave attiva: **{chiave}**")
+    
+    if chiave:
+        localS = get_ls(chiave)
+        dati = localS.getItem("imprendo_dati")
+        
+        if dati:
+            # Iteriamo su tutte le chiavi principali presenti nel JSON salvato
+            for sezione, contenuto in dati.items():
+                if isinstance(contenuto, list):
+                    st.sidebar.write(f"📂 **{sezione}**: {len(contenuto)} elementi")
+                elif isinstance(contenuto, dict):
+                    st.sidebar.write(f"📂 **{sezione}**: {len(contenuto)} chiavi")
+                else:
+                    st.sidebar.write(f"📂 **{sezione}**: Trovato")
+                
+                # Se vuoi vedere il contenuto nel dettaglio (cliccabile)
+                with st.sidebar.expander(f"Dettaglio {sezione}"):
+                    st.json(contenuto)
+        else:
+            st.sidebar.error("❌ 'imprendo_dati' è NULL nel LocalStorage!")
+    else:
+        st.sidebar.warning("⚠️ MASTER_POINTER vuoto.")
+
+
+
+
+
+
 def login():
     if "user_data" not in st.session_state:
         st.session_state.user_data = None
@@ -163,6 +200,9 @@ def login():
         else:
             st.error(f"❌ **Utente non trovato!**")
     return None
+
+
+
 
 
 def ottieni_account_exchange(user_email):
@@ -818,6 +858,8 @@ if "anagrafica_version" not in st.session_state:
 utente_connesso = login()
 
 set_global_styles()
+
+log_sidebar_debug_completo()
 
 if "app_state" not in st.session_state:
     status_msg = None
