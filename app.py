@@ -103,7 +103,7 @@ def salva_stato_completo():
 
 def recupera_stato_completo():
     # --- DEBUG DI INIZIO ---
-    st.sidebar.write("DEBUG RECUPERO: Inizio funzione")
+    #st.sidebar.write("DEBUG RECUPERO: Inizio funzione")
     
     master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
@@ -118,8 +118,8 @@ def recupera_stato_completo():
     
     if dati:
         # --- DEBUG DATI LETTI ---
-        st.sidebar.write(f"DEBUG RECUPERO: Dati letti dal disco: {list(dati.keys())}")
-        st.sidebar.write(f"DEBUG RECUPERO: Anagrafica nel disco: {dati.get('anagrafica', {})}")
+        #st.sidebar.write(f"DEBUG RECUPERO: Dati letti dal disco: {list(dati.keys())}")
+        #st.sidebar.write(f"DEBUG RECUPERO: Anagrafica nel disco: {dati.get('anagrafica', {})}")
         
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
@@ -135,12 +135,12 @@ def recupera_stato_completo():
         st.session_state.storico_report = storico_recuperato
         
         # --- DEBUG FINALE ---
-        st.sidebar.write("DEBUG RECUPERO: Assegnazione completata.")
-        st.sidebar.write(f"DEBUG RECUPERO: Session State Anagrafica finale: {st.session_state.anagrafica}")
+        #st.sidebar.write("DEBUG RECUPERO: Assegnazione completata.")
+        #st.sidebar.write(f"DEBUG RECUPERO: Session State Anagrafica finale: {st.session_state.anagrafica}")
         
         return True
     
-    st.sidebar.write("DEBUG RECUPERO: Nessun dato trovato (dati è nullo)")
+    #st.sidebar.write("DEBUG RECUPERO: Nessun dato trovato (dati è nullo)")
     return False
 
 
