@@ -913,6 +913,20 @@ set_bg_color(color, status_msg)
 if utente_connesso:
 
     status_placeholder = st.empty()
+
+    # --- SALVATAGGIO MANUALE ---
+    st.sidebar.markdown("---")
+    if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
+
+        salva_stato_completo()
+        
+        st.sidebar.success("Dati salvati!")
+        
+        # Breve pausa per mostrare il messaggio
+        import time
+        time.sleep(1)
+        st.rerun()
+
     
     if st.sidebar.button("Logout"):
         status_placeholder.info("Logout in corso... pulizia dati...")
@@ -1236,18 +1250,7 @@ if utente_connesso:
                             # Incrementiamo la versione per cambiare la chiave dei widget
                             st.session_state.anagrafica_version += 1
                             
-                            # --- WATCHDOG DI SALVATAGGIO ---
-                            # Se l'hash dell'anagrafica cambia, salviamo forzatamente
-                            current_anag_hash = hash(str(st.session_state.anagrafica))
-
-                            if "last_anag_hash" not in st.session_state:
-                                st.session_state.last_anag_hash = current_anag_hash
-
-                            if st.session_state.last_anag_hash != current_anag_hash:
-                                # DEBUG PER VEDERE SE PARTE
-                                st.sidebar.error("🚨 Rilevato cambiamento! Salvataggio in corso...")
-                                salva_stato_completo()
-                                st.session_state.last_anagrafica_hash = current_anag_hash
+                            salva_stato_completo()
                             set_bg_color("#b3ff99")
                             time.sleep(1)
                             st.rerun()
