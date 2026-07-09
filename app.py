@@ -37,7 +37,9 @@ def get_ls(chiave):
         
     return _storage_cache[chiave]
 
-# 2. Funzione di reset
+
+
+
 def resetta_tutto_il_sistema():
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
@@ -56,7 +58,9 @@ def resetta_tutto_il_sistema():
     st.session_state.ls_registry = {} # Pulisce il registro
     st.toast("Sistema resettato!", icon="🔄")
 
-# 3. Salvataggio
+
+
+
 def salva_stato_completo():
     # USA IL GET_LS: NON istanziare LocalStorage direttamente
     master = get_ls("MASTER_POINTER")
@@ -96,7 +100,7 @@ def salva_stato_completo():
 
 
 
-# 4. Recupero
+
 def recupera_stato_completo():
     # --- DEBUG DI INIZIO ---
     st.write("DEBUG RECUPERO: Inizio funzione")
@@ -915,23 +919,18 @@ if utente_connesso:
     status_placeholder = st.empty()
 
     # --- SALVATAGGIO MANUALE ---
-    st.sidebar.markdown("---")
+    st.sidebar.divider()
     if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
 
         salva_stato_completo()
-        
         st.sidebar.success("Dati salvati!")
-        
-        # Breve pausa per mostrare il messaggio
-        import time
         time.sleep(1)
         st.rerun()
 
-    
+    st.sidebar.divider()
     if st.sidebar.button("Logout"):
         status_placeholder.info("Logout in corso... pulizia dati...")
         resetta_tutto_il_sistema()
-        import time
         time.sleep(1)
         st.rerun()
 
@@ -940,7 +939,6 @@ if utente_connesso:
     if st.sidebar.button("🔄 Inizia da zero"):
         status_placeholder.warning("Reset totale in corso...")
         resetta_tutto_il_sistema()
-        import time
         time.sleep(1)
         st.rerun()
     st.sidebar.divider()
