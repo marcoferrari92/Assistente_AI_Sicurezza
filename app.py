@@ -1233,8 +1233,8 @@ if utente_connesso:
                             # Incrementiamo la versione per cambiare la chiave dei widget
                             st.session_state.anagrafica_version += 1
                             
-                            st.session_state.last_anagrafica_hash = audio_hash
                             salva_stato_completo()
+                            #st.session_state.last_anagrafica_hash = audio_hash
                             set_bg_color("#b3ff99")
                             time.sleep(1)
                             st.rerun()
