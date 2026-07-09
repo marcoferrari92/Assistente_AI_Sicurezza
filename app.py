@@ -37,9 +37,7 @@ def get_ls(chiave):
         
     return _storage_cache[chiave]
 
-
-
-
+# 2. Funzione di reset
 def resetta_tutto_il_sistema():
     st.session_state.anagrafica = {}
     st.session_state.storico_report = []
@@ -58,49 +56,9 @@ def resetta_tutto_il_sistema():
     st.session_state.ls_registry = {} # Pulisce il registro
     st.toast("Sistema resettato!", icon="🔄")
 
-
-
-
-# def salva_stato_completo():
-#     # USA IL GET_LS: NON istanziare LocalStorage direttamente
-#     master = get_ls("MASTER_POINTER")
-#     chiave_attuale = master.getItem("chiave_valida")
-    
-#     if not chiave_attuale:
-#         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
-#         master.setItem("chiave_valida", chiave_attuale)
-    
-#     localS = get_ls(chiave_attuale)
-    
-#     # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
-#     storico_salvabile = []
-#     for item in st.session_state.storico_report:
-#         item_copy = item.copy()
-#         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
-#             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
-#         storico_salvabile.append(item_copy)
-
-#     data = {
-#         "anagrafica": st.session_state.anagrafica,
-#         "storico_report": storico_salvabile,
-#         "edits": st.session_state.edits
-#     }
-#     localS.setItem("imprendo_dati", data)
-    
-#     # --- DEBUG DI VERIFICA POST-SCRITTURA ---
-#     st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
-#     dati_appena_scritti = localS.getItem("imprendo_dati")
-#     if dati_appena_scritti:
-#         mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
-#         st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
-#         if mandataria_scritta != st.session_state.anagrafica['mandataria']:
-#             st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
-#     else:
-#         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
-
-
+# 3. Salvataggio
 def salva_stato_completo():
-    # 1. Recupero puntatore e chiave
+    # USA IL GET_LS: NON istanziare LocalStorage direttamente
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -110,26 +68,7 @@ def salva_stato_completo():
     
     localS = get_ls(chiave_attuale)
     
-    # 2. ESTRAZIONE DIRETTA DAI CAMPI (Widget Keys)
-    # Assumiamo che le tue key siano esattamente queste. 
-    # Se le tue key nell'expander sono diverse, correggi solo queste stringhe:
-    anagrafica_fresca = {
-        "mandataria": st.session_state.get("widget_mandataria", ""),
-        "mandante": st.session_state.get("widget_mandante", ""),
-        "committente": st.session_state.get("widget_committente", ""),
-        "indirizzo": st.session_state.get("widget_indirizzo", ""),
-        "città": st.session_state.get("widget_città", ""),
-        "provincia": st.session_state.get("widget_provincia", ""),
-        "commessa": st.session_state.get("widget_commessa", ""),
-        "oggetto": st.session_state.get("widget_oggetto", ""),
-        "attività": st.session_state.get("widget_attività", ""),
-        "coordinamento": st.session_state.get("widget_coordinamento", ""),
-        "personale": st.session_state.get("widget_personale", ""),
-        "verbali": st.session_state.get("widget_verbali", ""),
-        "allegati": st.session_state.get("widget_allegati", "")
-    }
-    
-    # 3. Conversione bytes (invariata)
+    # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
@@ -137,27 +76,34 @@ def salva_stato_completo():
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
 
-    # 4. Salvataggio
     data = {
-        "anagrafica": anagrafica_fresca,
+        "anagrafica": st.session_state.anagrafica,
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
     localS.setItem("imprendo_dati", data)
     
-    # Debug
-    st.sidebar.error(f"DEBUG_SALVA: {anagrafica_fresca.get('mandataria')}")
+    # --- DEBUG DI VERIFICA POST-SCRITTURA ---
+    dati_appena_scritti = localS.getItem("imprendo_dati")
+    if dati_appena_scritti:
+        mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
+        st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
+        if mandataria_scritta != st.session_state.anagrafica['mandataria']:
+            st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
+    else:
+        st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
 
+        
 
-
+# 4. Recupero
 def recupera_stato_completo():
     # --- DEBUG DI INIZIO ---
-    #st.sidebar.write("DEBUG RECUPERO: Inizio funzione")
+    st.write("DEBUG RECUPERO: Inizio funzione")
     
     master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
-    st.sidebar.write(f"DEBUG RECUPERO: Chiave trovata: {chiave_reale}")
+    st.write(f"DEBUG RECUPERO: Chiave trovata: {chiave_reale}")
     
     if not chiave_reale:
         return False
@@ -167,8 +113,8 @@ def recupera_stato_completo():
     
     if dati:
         # --- DEBUG DATI LETTI ---
-        #st.sidebar.write(f"DEBUG RECUPERO: Dati letti dal disco: {list(dati.keys())}")
-        #st.sidebar.write(f"DEBUG RECUPERO: Anagrafica nel disco: {dati.get('anagrafica', {})}")
+        st.write(f"DEBUG RECUPERO: Dati letti dal disco: {list(dati.keys())}")
+        st.write(f"DEBUG RECUPERO: Anagrafica nel disco: {dati.get('anagrafica', {})}")
         
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
@@ -184,12 +130,12 @@ def recupera_stato_completo():
         st.session_state.storico_report = storico_recuperato
         
         # --- DEBUG FINALE ---
-        #st.sidebar.write("DEBUG RECUPERO: Assegnazione completata.")
-        #st.sidebar.write(f"DEBUG RECUPERO: Session State Anagrafica finale: {st.session_state.anagrafica}")
+        st.write("DEBUG RECUPERO: Assegnazione completata.")
+        st.write(f"DEBUG RECUPERO: Session State Anagrafica finale: {st.session_state.anagrafica}")
         
         return True
     
-    #st.sidebar.write("DEBUG RECUPERO: Nessun dato trovato (dati è nullo)")
+    st.write("DEBUG RECUPERO: Nessun dato trovato (dati è nullo)")
     return False
 
 
@@ -966,20 +912,20 @@ set_bg_color(color, status_msg)
 if utente_connesso:
 
     status_placeholder = st.empty()
+    
+    if st.sidebar.button("Logout"):
+        status_placeholder.info("Logout in corso... pulizia dati...")
+        resetta_tutto_il_sistema()
+        import time
+        time.sleep(1)
+        st.rerun()
 
-    # --- SALVATAGGIO MANUALE ---
     st.sidebar.divider()
-    if st.sidebar.button("💾 SALVA BOZZA"):
-        salva_stato_completo(
-            st.session_state.anagrafica, 
-            st.session_state.storico_report, 
-            st.session_state.edits
-        )
-
     st.sidebar.subheader("Reset App")
     if st.sidebar.button("🔄 Inizia da zero"):
         status_placeholder.warning("Reset totale in corso...")
         resetta_tutto_il_sistema()
+        import time
         time.sleep(1)
         st.rerun()
     st.sidebar.divider()
@@ -1051,7 +997,7 @@ if utente_connesso:
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
-                    #salva_stato_completo()
+                    salva_stato_completo()
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(2)
@@ -1121,7 +1067,7 @@ if utente_connesso:
                                     })
                                 
                                 st.session_state.storico_report[idx]['report'] = report
-                                #salva_stato_completo()
+                                salva_stato_completo()
                                 st.rerun()
 
                         
@@ -1138,7 +1084,7 @@ if utente_connesso:
                                 for k in chiavi_da_rimuovere:
                                     del st.session_state[k]
                                     
-                                #salva_stato_completo()
+                                salva_stato_completo()
                                 st.rerun()
 
                         # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
@@ -1158,7 +1104,7 @@ if utente_connesso:
                                 for p in img_data['punti_critici']:
                                     p['coordinate'] = {'x': None, 'y': None} # Rende i cerchi invisibili
                             st.session_state.storico_report[idx]['report'] = report
-                            #salva_stato_completo()
+                            salva_stato_completo()
                             st.rerun()
 
                         # --- REGISTRATORE CONTESTUALE ---
@@ -1184,12 +1130,12 @@ if utente_connesso:
                                     new_v = st.session_state.get("version_counter", 0) + 1
                                     st.session_state.version_counter = new_v
                                     st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
-                                    #salva_stato_completo()
+                                    salva_stato_completo()
                                     
                                     # Reset Edits
                                     for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
                                     st.session_state.edits[f"edit_testo_{idx}"] = testo
-                                    #salva_stato_completo()
+                                    salva_stato_completo()
                                     
                                     del st.session_state.active_recorder
                                     st.rerun()
@@ -1216,8 +1162,8 @@ if utente_connesso:
                             "Modifica il verbale:", 
                             value=valore_attuale, 
                             height=230,
-                            key=key_testo  
-                            #on_change=salva_stato_completo 
+                            key=key_testo,  
+                            on_change=salva_stato_completo 
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
@@ -1240,7 +1186,7 @@ if utente_connesso:
                                     value=st.session_state.edits[key_punto],
                                     height=130,
                                     key=key_punto,
-                                    # on_change=salva_stato_completo
+                                    on_change=salva_stato_completo
                                 )
                             
                             with c_punto2:
@@ -1251,7 +1197,7 @@ if utente_connesso:
                                         if p in img_data['punti_critici']:
                                             img_data['punti_critici'].remove(p)
                                             st.session_state.storico_report[idx]['report'] = report
-                                            #salva_stato_completo()
+                                            salva_stato_completo()
                                             st.rerun()
 
         else:
@@ -1289,9 +1235,10 @@ if utente_connesso:
                             # Incrementiamo la versione per cambiare la chiave dei widget
                             st.session_state.anagrafica_version += 1
                             
-                            #salva_stato_completo()
+                            st.session_state.last_anagrafica_hash = audio_hash
                             set_bg_color("#b3ff99")
-                            time.sleep(1)
+                            time.sleep(2)
+                            salva_stato_completo()
                             st.rerun()
                 
                 # Lista definita fuori dal loop
@@ -1315,15 +1262,15 @@ if utente_connesso:
                             st.session_state.anagrafica[campo_id] = st.text_area(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget
-                                #on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
+                                key=key_widget,
+                                on_change=salva_stato_completo
                             )
                         else:
                             st.session_state.anagrafica[campo_id] = st.text_input(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget
-                                #on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
+                                key=key_widget,
+                                on_change=salva_stato_completo
                             )
                         
 
@@ -1358,7 +1305,7 @@ if utente_connesso:
                                     # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
                                     st.session_state.anagrafica_version += 1
                                     
-                                    #salva_stato_completo()
+                                    salva_stato_completo()
                                     set_bg_color("#b3ff99")
                                     time.sleep(1)
                                     st.rerun()
@@ -1369,8 +1316,8 @@ if utente_connesso:
                         st.session_state.anagrafica[campo_id] = st.text_area(
                             label, 
                             value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget
-                            #on_change=salva_stato_completo
+                            key=key_widget,
+                            on_change=salva_stato_completo
                         )
 
 
@@ -1410,7 +1357,7 @@ if utente_connesso:
                                     # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
                                     st.session_state.anagrafica_version += 1
                                     
-                                    #salva_stato_completo()
+                                    salva_stato_completo()
                                     set_bg_color("#b3ff99")
                                     time.sleep(1)
                                     st.rerun()
@@ -1421,8 +1368,8 @@ if utente_connesso:
                         st.session_state.anagrafica[campo_id] = st.text_area(
                             label, 
                             value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget
-                            #on_change=salva_stato_completo
+                            key=key_widget,
+                            on_change=salva_stato_completo
                         )
 
 
@@ -1431,8 +1378,8 @@ if utente_connesso:
                 "Carica allegati", 
                 accept_multiple_files=True, 
                 type=['pdf', 'jpg', 'png', 'txt'],
-                key="file_uploader_allegati"
-                #on_change=salva_stato_completo
+                key="file_uploader_allegati",
+                on_change=salva_stato_completo
             )
             
             if uploaded_files:
@@ -1443,7 +1390,7 @@ if utente_connesso:
                 # Se non ci sono file, salviamo lo stato di "vuoto"
                 if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
                     st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
-                    #salva_stato_completo()
+                    salva_stato_completo()
 
             # Opzionale: mostra un avviso
             if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
@@ -1486,5 +1433,3 @@ if utente_connesso:
                             st.success(msg)
                         else:
                             st.error(f"Errore: {msg}")
-
-        
