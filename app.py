@@ -61,8 +61,46 @@ def resetta_tutto_il_sistema():
 
 
 
+# def salva_stato_completo():
+#     # USA IL GET_LS: NON istanziare LocalStorage direttamente
+#     master = get_ls("MASTER_POINTER")
+#     chiave_attuale = master.getItem("chiave_valida")
+    
+#     if not chiave_attuale:
+#         chiave_attuale = f"storage_{random.randint(10000, 99999)}"
+#         master.setItem("chiave_valida", chiave_attuale)
+    
+#     localS = get_ls(chiave_attuale)
+    
+#     # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
+#     storico_salvabile = []
+#     for item in st.session_state.storico_report:
+#         item_copy = item.copy()
+#         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
+#             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
+#         storico_salvabile.append(item_copy)
+
+#     data = {
+#         "anagrafica": st.session_state.anagrafica,
+#         "storico_report": storico_salvabile,
+#         "edits": st.session_state.edits
+#     }
+#     localS.setItem("imprendo_dati", data)
+    
+#     # --- DEBUG DI VERIFICA POST-SCRITTURA ---
+#     st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
+#     dati_appena_scritti = localS.getItem("imprendo_dati")
+#     if dati_appena_scritti:
+#         mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
+#         st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
+#         if mandataria_scritta != st.session_state.anagrafica['mandataria']:
+#             st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
+#     else:
+#         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
+
+
 def salva_stato_completo():
-    # USA IL GET_LS: NON istanziare LocalStorage direttamente
+    # 1. Recupero puntatore e chiave
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -72,7 +110,26 @@ def salva_stato_completo():
     
     localS = get_ls(chiave_attuale)
     
-    # [TUA CONVERSIONE BYTES INTATTA COME VOLEVI]
+    # 2. ESTRAZIONE DIRETTA DAI CAMPI (Widget Keys)
+    # Assumiamo che le tue key siano esattamente queste. 
+    # Se le tue key nell'expander sono diverse, correggi solo queste stringhe:
+    anagrafica_fresca = {
+        "mandataria": st.session_state.get("widget_mandataria", ""),
+        "mandante": st.session_state.get("widget_mandante", ""),
+        "committente": st.session_state.get("widget_committente", ""),
+        "indirizzo": st.session_state.get("widget_indirizzo", ""),
+        "città": st.session_state.get("widget_città", ""),
+        "provincia": st.session_state.get("widget_provincia", ""),
+        "commessa": st.session_state.get("widget_commessa", ""),
+        "oggetto": st.session_state.get("widget_oggetto", ""),
+        "attività": st.session_state.get("widget_attività", ""),
+        "coordinamento": st.session_state.get("widget_coordinamento", ""),
+        "personale": st.session_state.get("widget_personale", ""),
+        "verbali": st.session_state.get("widget_verbali", ""),
+        "allegati": st.session_state.get("widget_allegati", "")
+    }
+    
+    # 3. Conversione bytes (invariata)
     storico_salvabile = []
     for item in st.session_state.storico_report:
         item_copy = item.copy()
@@ -80,25 +137,16 @@ def salva_stato_completo():
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
 
+    # 4. Salvataggio
     data = {
-        "anagrafica": st.session_state.anagrafica,
+        "anagrafica": anagrafica_fresca,
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
     localS.setItem("imprendo_dati", data)
     
-    # --- DEBUG DI VERIFICA POST-SCRITTURA ---
-    st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
-    dati_appena_scritti = localS.getItem("imprendo_dati")
-    if dati_appena_scritti:
-        mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
-        st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
-        if mandataria_scritta != st.session_state.anagrafica['mandataria']:
-            st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
-    else:
-        st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
-
-
+    # Debug
+    st.sidebar.error(f"DEBUG_SALVA: {anagrafica_fresca.get('mandataria')}")
 
 
 
@@ -1168,8 +1216,8 @@ if utente_connesso:
                             "Modifica il verbale:", 
                             value=valore_attuale, 
                             height=230,
-                            key=key_testo,  
-                            on_change=salva_stato_completo 
+                            key=key_testo  
+                            #on_change=salva_stato_completo 
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
@@ -1192,7 +1240,7 @@ if utente_connesso:
                                     value=st.session_state.edits[key_punto],
                                     height=130,
                                     key=key_punto,
-                                    on_change=salva_stato_completo
+                                    # on_change=salva_stato_completo
                                 )
                             
                             with c_punto2:
@@ -1267,15 +1315,15 @@ if utente_connesso:
                             st.session_state.anagrafica[campo_id] = st.text_area(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget,
-                                on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
+                                key=key_widget
+                                #on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
                             )
                         else:
                             st.session_state.anagrafica[campo_id] = st.text_input(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget,
-                                on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
+                                key=key_widget
+                                #on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
                             )
                         
 
@@ -1321,8 +1369,8 @@ if utente_connesso:
                         st.session_state.anagrafica[campo_id] = st.text_area(
                             label, 
                             value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
+                            key=key_widget
+                            #on_change=salva_stato_completo
                         )
 
 
@@ -1373,8 +1421,8 @@ if utente_connesso:
                         st.session_state.anagrafica[campo_id] = st.text_area(
                             label, 
                             value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
+                            key=key_widget
+                            #on_change=salva_stato_completo
                         )
 
 
@@ -1383,8 +1431,8 @@ if utente_connesso:
                 "Carica allegati", 
                 accept_multiple_files=True, 
                 type=['pdf', 'jpg', 'png', 'txt'],
-                key="file_uploader_allegati",
-                on_change=salva_stato_completo
+                key="file_uploader_allegati"
+                #on_change=salva_stato_completo
             )
             
             if uploaded_files:
