@@ -103,7 +103,7 @@ def recupera_stato_completo():
     master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
     
-    st.write(f"DEBUG RECUPERO: Chiave trovata: {chiave_reale}")
+    st.sidebar.write(f"DEBUG RECUPERO: Chiave trovata: {chiave_reale}")
     
     if not chiave_reale:
         return False
@@ -913,19 +913,17 @@ if utente_connesso:
 
     status_placeholder = st.empty()
     
-    if st.sidebar.button("Logout"):
-        status_placeholder.info("Logout in corso... pulizia dati...")
-        resetta_tutto_il_sistema()
-        import time
+    if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
+        status_placeholder.warning("Salvataggio...")
+        salva_stato_completo()
+        st.sidebar.success("Dati salvati!")
         time.sleep(1)
         st.rerun()
 
-    st.sidebar.divider()
     st.sidebar.subheader("Reset App")
     if st.sidebar.button("🔄 Inizia da zero"):
         status_placeholder.warning("Reset totale in corso...")
         resetta_tutto_il_sistema()
-        import time
         time.sleep(1)
         st.rerun()
     st.sidebar.divider()
