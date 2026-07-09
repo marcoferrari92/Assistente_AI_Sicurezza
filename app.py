@@ -1316,8 +1316,10 @@ if utente_connesso:
                                 with st.spinner(f"Elaborazione {label}..."):
                                     set_bg_color("#D0AD00")
                                     
-                                    risultato = elabora_anagrafica_ai(audio_data['bytes'])
-                                    st.session_state.anagrafica[campo_id] = risultato
+                                    dati_totali = elabora_anagrafica_ai(audio_data['bytes'])
+                                    if campo_id in dati_totali:
+                                        nuovo_valore = dati_totali[campo_id]
+                                        st.session_state.anagrafica[campo_id] = nuovo_valore
                                     st.session_state[key_hash] = current_hash
                                     
                                     # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
