@@ -1184,12 +1184,12 @@ if utente_connesso:
                                     new_v = st.session_state.get("version_counter", 0) + 1
                                     st.session_state.version_counter = new_v
                                     st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
-                                    salva_stato_completo()
+                                    #salva_stato_completo()
                                     
                                     # Reset Edits
                                     for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
                                     st.session_state.edits[f"edit_testo_{idx}"] = testo
-                                    salva_stato_completo()
+                                    #salva_stato_completo()
                                     
                                     del st.session_state.active_recorder
                                     st.rerun()
@@ -1251,7 +1251,7 @@ if utente_connesso:
                                         if p in img_data['punti_critici']:
                                             img_data['punti_critici'].remove(p)
                                             st.session_state.storico_report[idx]['report'] = report
-                                            salva_stato_completo()
+                                            #salva_stato_completo()
                                             st.rerun()
 
         else:
@@ -1289,7 +1289,7 @@ if utente_connesso:
                             # Incrementiamo la versione per cambiare la chiave dei widget
                             st.session_state.anagrafica_version += 1
                             
-                            salva_stato_completo()
+                            #salva_stato_completo()
                             set_bg_color("#b3ff99")
                             time.sleep(1)
                             st.rerun()
@@ -1358,7 +1358,7 @@ if utente_connesso:
                                     # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
                                     st.session_state.anagrafica_version += 1
                                     
-                                    salva_stato_completo()
+                                    #salva_stato_completo()
                                     set_bg_color("#b3ff99")
                                     time.sleep(1)
                                     st.rerun()
@@ -1410,7 +1410,7 @@ if utente_connesso:
                                     # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
                                     st.session_state.anagrafica_version += 1
                                     
-                                    salva_stato_completo()
+                                    #salva_stato_completo()
                                     set_bg_color("#b3ff99")
                                     time.sleep(1)
                                     st.rerun()
@@ -1443,7 +1443,7 @@ if utente_connesso:
                 # Se non ci sono file, salviamo lo stato di "vuoto"
                 if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
                     st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
-                    salva_stato_completo()
+                    #salva_stato_completo()
 
             # Opzionale: mostra un avviso
             if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
