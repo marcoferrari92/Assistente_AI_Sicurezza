@@ -1316,7 +1316,7 @@ if utente_connesso:
                                 with st.spinner(f"Elaborazione {label}..."):
                                     set_bg_color("#D0AD00")
                                     
-                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'])
+                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
                                     st.session_state.anagrafica[campo_id] = risultato
                                     st.session_state[key_hash] = current_hash
                                     
