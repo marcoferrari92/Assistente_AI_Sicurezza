@@ -128,7 +128,7 @@ def salva_stato_completo(anagrafica_input, storico_input, edits_input):
     # Debug rapido in sidebar
     st.sidebar.error(f"DEBUG_SALVA: {anagrafica_input.get('mandataria')}")
 
-    
+
 
 def recupera_stato_completo():
     # --- DEBUG DI INIZIO ---
@@ -949,21 +949,13 @@ if utente_connesso:
 
     # --- SALVATAGGIO MANUALE ---
     st.sidebar.divider()
-    if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
+    if st.sidebar.button("💾 SALVA BOZZA"):
+        salva_stato_completo(
+            st.session_state.anagrafica, 
+            st.session_state.storico_report, 
+            st.session_state.edits
+        )
 
-        salva_stato_completo()
-        st.sidebar.success("Dati salvati!")
-        time.sleep(1)
-        st.rerun()
-
-    st.sidebar.divider()
-    if st.sidebar.button("Logout"):
-        status_placeholder.info("Logout in corso... pulizia dati...")
-        resetta_tutto_il_sistema()
-        time.sleep(1)
-        st.rerun()
-
-    st.sidebar.divider()
     st.sidebar.subheader("Reset App")
     if st.sidebar.button("🔄 Inizia da zero"):
         status_placeholder.warning("Reset totale in corso...")
