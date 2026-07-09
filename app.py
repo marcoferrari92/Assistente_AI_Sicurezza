@@ -1183,44 +1183,26 @@ if utente_connesso:
                 ("provincia", "Provincia", "input")
             ]
 
-            # Definiamo un "salt" (sale) che cambia solo quando l'AI aggiorna i dati
-            # Se st.session_state.anagrafica non ha un "version", lo creiamo
-            if "anagrafica_version" not in st.session_state:
-                st.session_state.anagrafica_version = 0
+            salt = st.session_state.get("anagrafica_version", 0)
 
-            # Questo 'salt' serve a cambiare la key del widget solo quando l'AI lavora
-            # Così Streamlit è FORZATO a ridisegnare il campo con il nuovo valore
-            salt = st.session_state.anagrafica_version
-            
             for campo_id, label, tipo in campi:
-
-                # 1. Recuperiamo il valore aggiornato dal session_state
-                # Questo garantisce che leggiamo l'ultimo valore scritto dall'AI
-                valore_attuale = st.session_state.anagrafica.get(campo_id, "")
-
-                # 2. La key deve cambiare per forzare il refresh (come abbiamo detto)
-                key_widget = f"widget_{campo_id}_{st.session_state.get('anagrafica_version', 0)}"
-                
-                if tipo == "area":
-                    # Usiamo valore_attuale che è fresco di lettura dal session_state
-                    nuovo_valore = st.text_area(
-                        label, 
-                        value=valore_attuale, 
-                        height=130,
-                        key=key_widget,
-                        on_change=salva_stato_completo 
-                    )
-                else:
-                    nuovo_valore = st.text_input(
-                        label, 
-                        value=valore_attuale, 
-                        key=key_widget, 
-                        on_change=salva_stato_completo 
-                    )
-                
-                # 3. Aggiorniamo il session_state se l'utente ha scritto nel widget
-                if nuovo_valore != st.session_state.anagrafica.get(campo_id, ""):
-                    st.session_state.anagrafica[campo_id] = nuovo_valore
+                with st.container():
+                    key_widget = f"widget_{campo_id}_{salt}"
+                    
+                    if tipo == "area":
+                        st.session_state.anagrafica[campo_id] = st.text_area(
+                            label, 
+                            value=st.session_state.anagrafica.get(campo_id, ""),
+                            key=key_widget,
+                            on_change=salva_stato_completo
+                        )
+                    else:
+                        st.session_state.anagrafica[campo_id] = st.text_input(
+                            label, 
+                            value=st.session_state.anagrafica.get(campo_id, ""),
+                            key=key_widget,
+                            on_change=salva_stato_completo
+                        )
 
 
         with st.expander("📝 Commessa e Oggetto"):
@@ -1247,7 +1229,7 @@ if utente_connesso:
                                 with st.spinner(f"Elaborazione {label}..."):
                                     set_bg_color("#D0AD00")
                                     
-                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
+                                    risultato = elabora_anagrafica_ai(audio_data['bytes'], campo_id)
                                     st.session_state.anagrafica[campo_id] = risultato
                                     st.session_state[key_hash] = current_hash
                                     
