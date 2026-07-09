@@ -99,7 +99,12 @@ def resetta_tutto_il_sistema():
 #         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
 
 
-def salva_stato_completo(anagrafica_input, storico_input, edits_input):
+def salva_stato_completo(anagrafica_input=None, storico_input=None, edits_input=None):
+    # Se non passo nulla, prende dal session_state (retrocompatibile)
+    anagrafica_input = anagrafica_input if anagrafica_input is not None else st.session_state.anagrafica
+    storico_input = storico_input if storico_input is not None else st.session_state.storico_report
+    edits_input = edits_input if edits_input is not None else st.session_state.edits
+
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -109,7 +114,6 @@ def salva_stato_completo(anagrafica_input, storico_input, edits_input):
     
     localS = get_ls(chiave_attuale)
     
-    # Conversione bytes
     storico_salvabile = []
     for item in storico_input:
         item_copy = item.copy()
@@ -118,16 +122,13 @@ def salva_stato_completo(anagrafica_input, storico_input, edits_input):
         storico_salvabile.append(item_copy)
 
     data = {
-        "anagrafica": anagrafica_input, # Usa il dizionario passato come argomento
+        "anagrafica": anagrafica_input,
         "storico_report": storico_salvabile,
         "edits": edits_input
     }
     
     localS.setItem("imprendo_dati", data)
-    
-    # Debug rapido in sidebar
     st.sidebar.error(f"DEBUG_SALVA: {anagrafica_input.get('mandataria')}")
-
 
 
 def recupera_stato_completo():
