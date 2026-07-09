@@ -1152,8 +1152,8 @@ if utente_connesso:
                             dati = elabora_anagrafica_ai(audio_data['bytes'])
                             
                             # Aggiornamento dati
-                            st.session_state.anagrafica["mandataria"] = str(dati.get("mandataria", "")).replace(", ", "\n")
-                            st.session_state.anagrafica["mandante"] = str(dati.get("mandante", "")).replace(", ", "\n")
+                            st.session_state.anagrafica["mandataria"]   = str(dati.get("mandataria", "")).replace(", ", "\n")
+                            st.session_state.anagrafica["mandante"]     = str(dati.get("mandante", "")).replace(", ", "\n")
                             st.session_state.anagrafica.update({
                                 "committente": dati.get("committente", ""),
                                 "indirizzo": dati.get("indirizzo", ""),
@@ -1170,9 +1170,6 @@ if utente_connesso:
                             time.sleep(2)
                             salva_stato_completo()
                             st.rerun()
-
-                #DEBUG: stampa cosa vede Streamlit PRIMA dei campi
-                st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
                 
                 # Lista definita fuori dal loop
                 campi = [
@@ -1190,7 +1187,7 @@ if utente_connesso:
                     
                         key_widget = f"widget_{campo_id}_{salt}"
                         
-                        # ASSEGNAZIONE DIRETTA NEL WIDGET (come nell'expander che funziona)
+                        # ASSEGNAZIONE DIRETTA NEL WIDGET
                         if tipo == "area":
                             st.session_state.anagrafica[campo_id] = st.text_area(
                                 label, 
@@ -1205,6 +1202,7 @@ if utente_connesso:
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
+                        st.session_state.anagrafica_version += 1
 
 
         with st.expander("📝 Commessa e Oggetto"):
