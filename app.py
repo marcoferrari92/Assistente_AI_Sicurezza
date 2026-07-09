@@ -1138,72 +1138,73 @@ if utente_connesso:
 
 
         with st.expander("👤 Anagrafiche"):
+            with st.container():
 
-            # 1. Pulsante di registrazione unico
-            audio_data = mic_recorder(key="rec_anagrafica_totale", start_prompt="🎤", stop_prompt="⏹️")
-            
-            if audio_data:
-                audio_hash = hash(str(audio_data['bytes']))
-                if st.session_state.get("last_anagrafica_hash") != audio_hash:
-                    with st.spinner("L'AI sta estraendo i dati..."):
-                        set_bg_color("#D0AD00")
+                # 1. Pulsante di registrazione unico
+                audio_data = mic_recorder(key="rec_anagrafica_totale", start_prompt="🎤", stop_prompt="⏹️")
+                
+                if audio_data:
+                    audio_hash = hash(str(audio_data['bytes']))
+                    if st.session_state.get("last_anagrafica_hash") != audio_hash:
+                        with st.spinner("L'AI sta estraendo i dati..."):
+                            set_bg_color("#D0AD00")
 
-                        dati = elabora_anagrafica_ai(audio_data['bytes'])
-                        
-                        # Aggiornamento dati
-                        st.session_state.anagrafica["mandataria"] = str(dati.get("mandataria", "")).replace(", ", "\n")
-                        st.session_state.anagrafica["mandante"] = str(dati.get("mandante", "")).replace(", ", "\n")
-                        st.session_state.anagrafica.update({
-                            "committente": dati.get("committente", ""),
-                            "indirizzo": dati.get("indirizzo", ""),
-                            "città": dati.get("città", ""),
-                            "provincia": dati.get("provincia", "")
-                        })
-                        
-                        # !!! QUESTO È QUELLO CHE MANCAVA !!!
-                        # Incrementiamo la versione per cambiare la chiave dei widget
-                        st.session_state.anagrafica_version += 1
-                        
-                        st.session_state.last_anagrafica_hash = audio_hash
-                        set_bg_color("#b3ff99")
-                        time.sleep(2)
-                        salva_stato_completo()
-                        st.rerun()
+                            dati = elabora_anagrafica_ai(audio_data['bytes'])
+                            
+                            # Aggiornamento dati
+                            st.session_state.anagrafica["mandataria"] = str(dati.get("mandataria", "")).replace(", ", "\n")
+                            st.session_state.anagrafica["mandante"] = str(dati.get("mandante", "")).replace(", ", "\n")
+                            st.session_state.anagrafica.update({
+                                "committente": dati.get("committente", ""),
+                                "indirizzo": dati.get("indirizzo", ""),
+                                "città": dati.get("città", ""),
+                                "provincia": dati.get("provincia", "")
+                            })
+                            
+                            # !!! QUESTO È QUELLO CHE MANCAVA !!!
+                            # Incrementiamo la versione per cambiare la chiave dei widget
+                            st.session_state.anagrafica_version += 1
+                            
+                            st.session_state.last_anagrafica_hash = audio_hash
+                            set_bg_color("#b3ff99")
+                            time.sleep(2)
+                            salva_stato_completo()
+                            st.rerun()
 
-            #DEBUG: stampa cosa vede Streamlit PRIMA dei campi
-            #st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
-            
-            # Lista definita fuori dal loop
-            campi = [
-                ("mandataria", "Mandataria/e", "area"),
-                ("mandante", "Mandante/i", "area"),
-                ("committente", "Ragione Sociale Committente", "input"),
-                ("indirizzo", "Indirizzo", "input"),
-                ("città", "Città", "input"),
-                ("provincia", "Provincia", "input")
-            ]
+                #DEBUG: stampa cosa vede Streamlit PRIMA dei campi
+                st.write(f"DEBUG ANAGRAFICA: {st.session_state.anagrafica}")
+                
+                # Lista definita fuori dal loop
+                campi = [
+                    ("mandataria", "Mandataria/e", "area"),
+                    ("mandante", "Mandante/i", "area"),
+                    ("committente", "Ragione Sociale Committente", "input"),
+                    ("indirizzo", "Indirizzo", "input"),
+                    ("città", "Città", "input"),
+                    ("provincia", "Provincia", "input")
+                ]
 
-            salt = st.session_state.get("anagrafica_version", 0)
-            
-            for campo_id, label, tipo in campi:
-                # Isoliamo ogni widget in un container dedicato come nell'expander che funziona
-                with st.container():
-                    key_widget = f"widget_{campo_id}_{salt}"
+                salt = st.session_state.get("anagrafica_version", 0)
+                
+                for campo_id, label, tipo in campi:
                     
-                    if tipo == "area":
-                        st.session_state.anagrafica[campo_id] = st.text_area(
-                            label, 
-                            value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
-                        )
-                    else:
-                        st.session_state.anagrafica[campo_id] = st.text_input(
-                            label, 
-                            value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
-                        )
+                        key_widget = f"widget_{campo_id}_{salt}"
+                        
+                        # ASSEGNAZIONE DIRETTA NEL WIDGET (come nell'expander che funziona)
+                        if tipo == "area":
+                            st.session_state.anagrafica[campo_id] = st.text_area(
+                                label, 
+                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget,
+                                on_change=salva_stato_completo
+                            )
+                        else:
+                            st.session_state.anagrafica[campo_id] = st.text_input(
+                                label, 
+                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget,
+                                on_change=salva_stato_completo
+                            )
 
 
         with st.expander("📝 Commessa e Oggetto"):
