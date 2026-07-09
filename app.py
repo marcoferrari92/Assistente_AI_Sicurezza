@@ -81,11 +81,6 @@ def salva_stato_completo():
         "storico_report": storico_salvabile,
         "edits": st.session_state.edits
     }
-
-    # --- DEBUG QUI ---
-    st.sidebar.write(f"DEBUG SALVATAGGIO: Scrivendo in {chiave_attuale} -> {data['anagrafica']}")
-    st.sidebar.write(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
-    # -----------------
     
     localS.setItem("imprendo_dati", data)
 
@@ -1207,6 +1202,10 @@ if utente_connesso:
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
+
+                 # --- DEBUG QUI ---
+                st.sidebar.write(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
+                # -----------------
                         
 
         with st.expander("📝 Commessa e Oggetto"):
