@@ -84,6 +84,7 @@ def salva_stato_completo():
     localS.setItem("imprendo_dati", data)
     
     # --- DEBUG DI VERIFICA POST-SCRITTURA ---
+    st.sidebar.error(f"DEBUG_SALVA_EXECUTED: {st.session_state.anagrafica.get('mandataria')}")
     dati_appena_scritti = localS.getItem("imprendo_dati")
     if dati_appena_scritti:
         mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
@@ -93,7 +94,7 @@ def salva_stato_completo():
     else:
         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
 
-        
+
 
 # 4. Recupero
 def recupera_stato_completo():
