@@ -914,25 +914,29 @@ if utente_connesso:
     status_placeholder = st.empty()
     
     if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
-        status_placeholder.warning("Salvataggio...")
+        salt = st.session_state.get("anagrafica_version", 0)
         
-        campi_anagrafica = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia"]
-        for c in campi_anagrafica:
-            key_widget = f"widget_{c}_{st.session_state.get('anagrafica_version', 0)}"
-            if key_widget in st.session_state:
-                st.session_state.anagrafica[c] = st.session_state[key_widget]
-                
-        # Esempio per Commessa/Oggetto
-        campi_tecnici = ["commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
-        for c in campi_tecnici:
-            key_widget = f"widget_{c}_{st.session_state.get('anagrafica_version', 0)}"
-            if key_widget in st.session_state:
-                st.session_state.anagrafica[c] = st.session_state[key_widget]
+        # 1. ESTRAZIONE FORZATA DAI BOX (Widget)
+        # Creiamo un nuovo dizionario con i dati "freschi" presi dai campi
+        dati_aggiornati = {}
+        
+        # Elenco di tutte le key che hai usato nei text_area/text_input
+        # Assicurati che corrispondano ai nomi delle tue key nei widget
+        for campo in ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
+                    "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]:
+            
+            key_widget = f"widget_{campo}_{salt}"
+            # Prendiamo il valore direttamente dal dizionario di sessione di Streamlit
+            # usando la key del widget: questo garantisce di leggere cosa c'è NEL BOX
+            dati_aggiornati[campo] = st.session_state.get(key_widget, "")
 
-        # 2. Ora salviamo il session_state (che è stato appena sincronizzato)
+        # 2. AGGIORNAMENTO STATO
+        st.session_state.anagrafica.update(dati_aggiornati)
+        
+        # 3. SALVATAGGIO
         salva_stato_completo()
-        st.sidebar.success("Dati aggiornati e salvati!")
-
+        
+        st.sidebar.success("Dati estratti dai box e salvati!")
         time.sleep(1)
         st.rerun()
 
