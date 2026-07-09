@@ -115,7 +115,7 @@ def recupera_stato_completo():
 
 def log_sidebar_debug_completo():
     st.sidebar.markdown("---")
-    st.sidebar.subheader("🔍 DEBUG COMPLETO (LocalStorage)")
+    st.sidebar.subheader("🔍 DEBUG LOCAL STORAGE")
     
     master = get_ls("MASTER_POINTER")
     chiave = master.getItem("chiave_valida")
@@ -895,13 +895,13 @@ if utente_connesso:
 
     st.sidebar.divider()
     st.sidebar.subheader("Reset App")
-
     if st.sidebar.button("🔄 Inizia da zero"):
         status_placeholder.warning("Reset totale in corso...")
         resetta_tutto_il_sistema()
         import time
         time.sleep(1)
         st.rerun()
+    st.sidebar.divider()
 
 
     # IMPOSTAZIONI 
@@ -1226,44 +1226,36 @@ if utente_connesso:
 
                 salt = st.session_state.get("anagrafica_version", 0)
                 
+                # DEBUG: Stato del dizionario PRIMA del ciclo
+                print(f"DEBUG_INIZIO_RENDER: Stato anagrafica -> {st.session_state.anagrafica}")
+
                 for campo_id, label, tipo in campi:
-                    
+                    with st.container():
                         key_widget = f"widget_{campo_id}_{salt}"
                         
-                        # ASSEGNAZIONE DIRETTA NEL WIDGET
+                        # DEBUG: Cosa stiamo per passare al widget?
+                        valore_di_partenza = st.session_state.anagrafica.get(campo_id, "")
+                        print(f"DEBUG_WIDGET_PRE: Campo '{campo_id}' sta leggendo '{valore_di_partenza}'")
+
                         if tipo == "area":
-                            st.session_state.anagrafica[campo_id] = st.text_area(
+                            nuovo_valore = st.text_area(
                                 label, 
-                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                value=valore_di_partenza,
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
                         else:
-                            st.session_state.anagrafica[campo_id] = st.text_input(
+                            nuovo_valore = st.text_input(
                                 label, 
-                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                value=valore_di_partenza,
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
-
-                 # --- DEBUG QUI ---
-                # --- DEBUG GREZZO DEL LOCAL STORAGE ---
-                st.write("--- DEBUG DIRETTO LOCALSTORAGE ---")
-                master_debug = get_ls("MASTER_POINTER")
-                chiave_reale_debug = master_debug.getItem("chiave_valida")
-
-                if chiave_reale_debug:
-                    st.write(f"Chiave reale trovata: {chiave_reale_debug}")
-                    localS_debug = get_ls(chiave_reale_debug)
-                    dati_debug = localS_debug.getItem("imprendo_dati")
-                    if dati_debug:
-                        st.write("Dati ANAGRAFICA salvati nel LocalStorage:", dati_debug.get("anagrafica", "VUOTO"))
-                    else:
-                        st.error("ERRORE: La chiave esiste ma 'imprendo_dati' è NULL nel LocalStorage!")
-                else:
-                    st.error("ERRORE: 'MASTER_POINTER' non punta a nessuna chiave!")
-# ---------------------------------------
-                # -----------------
+                        
+                        # DEBUG: Il widget ha restituito qualcosa di diverso?
+                        if nuovo_valore != valore_di_partenza:
+                            print(f"DEBUG_WIDGET_POST: Campo '{campo_id}' aggiornato a '{nuovo_valore}'")
+                            st.session_state.anagrafica[campo_id] = nuovo_valore
                         
 
         with st.expander("📝 Commessa e Oggetto"):
