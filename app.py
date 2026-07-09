@@ -83,8 +83,8 @@ def salva_stato_completo():
     }
 
     # --- DEBUG QUI ---
-    print(f"DEBUG SALVATAGGIO: Scrivendo in {chiave_attuale} -> {data['anagrafica']}")
-    st.sidebar.info(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
+    st.sidebar.write(f"DEBUG SALVATAGGIO: Scrivendo in {chiave_attuale} -> {data['anagrafica']}")
+    st.sidebar.write(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
     # -----------------
     
     localS.setItem("imprendo_dati", data)
