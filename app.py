@@ -1234,9 +1234,9 @@ if utente_connesso:
                             st.session_state.anagrafica_version += 1
                             
                             st.session_state.last_anagrafica_hash = audio_hash
-                            set_bg_color("#b3ff99")
-                            time.sleep(2)
                             salva_stato_completo()
+                            set_bg_color("#b3ff99")
+                            time.sleep(1)
                             st.rerun()
                 
                 # Lista definita fuori dal loop
