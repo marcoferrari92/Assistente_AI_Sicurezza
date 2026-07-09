@@ -1204,7 +1204,22 @@ if utente_connesso:
                             )
 
                  # --- DEBUG QUI ---
-                st.sidebar.write(f"💾 Salvato: {list(data['anagrafica'].keys())}") 
+                # --- DEBUG GREZZO DEL LOCAL STORAGE ---
+                st.write("--- DEBUG DIRETTO LOCALSTORAGE ---")
+                master_debug = get_ls("MASTER_POINTER")
+                chiave_reale_debug = master_debug.getItem("chiave_valida")
+
+                if chiave_reale_debug:
+                    st.write(f"Chiave reale trovata: {chiave_reale_debug}")
+                    localS_debug = get_ls(chiave_reale_debug)
+                    dati_debug = localS_debug.getItem("imprendo_dati")
+                    if dati_debug:
+                        st.write("Dati ANAGRAFICA salvati nel LocalStorage:", dati_debug.get("anagrafica", "VUOTO"))
+                    else:
+                        st.error("ERRORE: La chiave esiste ma 'imprendo_dati' è NULL nel LocalStorage!")
+                else:
+                    st.error("ERRORE: 'MASTER_POINTER' non punta a nessuna chiave!")
+# ---------------------------------------
                 # -----------------
                         
 
