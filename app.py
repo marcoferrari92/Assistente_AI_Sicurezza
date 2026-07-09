@@ -1184,8 +1184,9 @@ if utente_connesso:
             ]
 
             salt = st.session_state.get("anagrafica_version", 0)
-
+            
             for campo_id, label, tipo in campi:
+                # Isoliamo ogni widget in un container dedicato come nell'expander che funziona
                 with st.container():
                     key_widget = f"widget_{campo_id}_{salt}"
                     
