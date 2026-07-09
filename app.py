@@ -142,6 +142,7 @@ def log_sidebar_debug_completo():
             st.sidebar.error("❌ 'imprendo_dati' è NULL nel LocalStorage!")
     else:
         st.sidebar.warning("⚠️ MASTER_POINTER vuoto.")
+    st.sidebar.markdown("---")
 
 
 
