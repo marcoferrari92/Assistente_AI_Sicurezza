@@ -915,8 +915,24 @@ if utente_connesso:
     
     if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
         status_placeholder.warning("Salvataggio...")
+        
+        campi_anagrafica = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia"]
+        for c in campi_anagrafica:
+            key_widget = f"widget_{c}_{st.session_state.get('anagrafica_version', 0)}"
+            if key_widget in st.session_state:
+                st.session_state.anagrafica[c] = st.session_state[key_widget]
+                
+        # Esempio per Commessa/Oggetto
+        campi_tecnici = ["commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
+        for c in campi_tecnici:
+            key_widget = f"widget_{c}_{st.session_state.get('anagrafica_version', 0)}"
+            if key_widget in st.session_state:
+                st.session_state.anagrafica[c] = st.session_state[key_widget]
+
+        # 2. Ora salviamo il session_state (che è stato appena sincronizzato)
         salva_stato_completo()
-        st.sidebar.success("Dati salvati!")
+        st.sidebar.success("Dati aggiornati e salvati!")
+
         time.sleep(1)
         st.rerun()
 
