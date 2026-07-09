@@ -1264,14 +1264,14 @@ if utente_connesso:
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
                                 key=key_widget,
-                                on_change=salva_stato_completo
+                                on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
                             )
                         else:
                             st.session_state.anagrafica[campo_id] = st.text_input(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
                                 key=key_widget,
-                                on_change=salva_stato_completo
+                                on_change=lambda: st.sidebar.write("✅ CALLBACK PARTITA")
                             )
                         
 
