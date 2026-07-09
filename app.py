@@ -99,12 +99,8 @@ def resetta_tutto_il_sistema():
 #         st.error("❌ ERRORE: Non riesco a leggere 'imprendo_dati' appena salvato!")
 
 
-def salva_stato_completo(anagrafica_input=None, storico_input=None, edits_input=None):
-    # Se non passo nulla, prende dal session_state (retrocompatibile)
-    anagrafica_input = anagrafica_input if anagrafica_input is not None else st.session_state.anagrafica
-    storico_input = storico_input if storico_input is not None else st.session_state.storico_report
-    edits_input = edits_input if edits_input is not None else st.session_state.edits
-
+def salva_stato_completo():
+    # 1. Recupero puntatore e chiave
     master = get_ls("MASTER_POINTER")
     chiave_attuale = master.getItem("chiave_valida")
     
@@ -114,21 +110,43 @@ def salva_stato_completo(anagrafica_input=None, storico_input=None, edits_input=
     
     localS = get_ls(chiave_attuale)
     
+    # 2. ESTRAZIONE DIRETTA DAI CAMPI (Widget Keys)
+    # Assumiamo che le tue key siano esattamente queste. 
+    # Se le tue key nell'expander sono diverse, correggi solo queste stringhe:
+    anagrafica_fresca = {
+        "mandataria": st.session_state.get("widget_mandataria", ""),
+        "mandante": st.session_state.get("widget_mandante", ""),
+        "committente": st.session_state.get("widget_committente", ""),
+        "indirizzo": st.session_state.get("widget_indirizzo", ""),
+        "città": st.session_state.get("widget_città", ""),
+        "provincia": st.session_state.get("widget_provincia", ""),
+        "commessa": st.session_state.get("widget_commessa", ""),
+        "oggetto": st.session_state.get("widget_oggetto", ""),
+        "attività": st.session_state.get("widget_attività", ""),
+        "coordinamento": st.session_state.get("widget_coordinamento", ""),
+        "personale": st.session_state.get("widget_personale", ""),
+        "verbali": st.session_state.get("widget_verbali", ""),
+        "allegati": st.session_state.get("widget_allegati", "")
+    }
+    
+    # 3. Conversione bytes (invariata)
     storico_salvabile = []
-    for item in storico_input:
+    for item in st.session_state.storico_report:
         item_copy = item.copy()
         if "bytes" in item_copy and isinstance(item_copy["bytes"], bytes):
             item_copy["bytes"] = base64.b64encode(item_copy["bytes"]).decode('utf-8')
         storico_salvabile.append(item_copy)
 
+    # 4. Salvataggio
     data = {
-        "anagrafica": anagrafica_input,
+        "anagrafica": anagrafica_fresca,
         "storico_report": storico_salvabile,
-        "edits": edits_input
+        "edits": st.session_state.edits
     }
-    
     localS.setItem("imprendo_dati", data)
-    st.sidebar.error(f"DEBUG_SALVA: {anagrafica_input.get('mandataria')}")
+    
+    # Debug
+    st.sidebar.error(f"DEBUG_SALVA: {anagrafica_fresca.get('mandataria')}")
 
 
 def recupera_stato_completo():
