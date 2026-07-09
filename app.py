@@ -1051,7 +1051,7 @@ if utente_connesso:
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
-                    salva_stato_completo()
+                    #salva_stato_completo()
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(2)
@@ -1121,7 +1121,7 @@ if utente_connesso:
                                     })
                                 
                                 st.session_state.storico_report[idx]['report'] = report
-                                salva_stato_completo()
+                                #salva_stato_completo()
                                 st.rerun()
 
                         
@@ -1138,7 +1138,7 @@ if utente_connesso:
                                 for k in chiavi_da_rimuovere:
                                     del st.session_state[k]
                                     
-                                salva_stato_completo()
+                                #salva_stato_completo()
                                 st.rerun()
 
                         # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
@@ -1158,7 +1158,7 @@ if utente_connesso:
                                 for p in img_data['punti_critici']:
                                     p['coordinate'] = {'x': None, 'y': None} # Rende i cerchi invisibili
                             st.session_state.storico_report[idx]['report'] = report
-                            salva_stato_completo()
+                            #salva_stato_completo()
                             st.rerun()
 
                         # --- REGISTRATORE CONTESTUALE ---
