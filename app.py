@@ -86,8 +86,13 @@ def salva_stato_completo():
 
 # 4. Recupero
 def recupera_stato_completo():
+    # --- DEBUG DI INIZIO ---
+    st.write("DEBUG RECUPERO: Inizio funzione")
+    
     master = LocalStorage(key="MASTER_POINTER")
     chiave_reale = master.getItem("chiave_valida")
+    
+    st.write(f"DEBUG RECUPERO: Chiave trovata: {chiave_reale}")
     
     if not chiave_reale:
         return False
@@ -96,6 +101,10 @@ def recupera_stato_completo():
     dati = localS.getItem("imprendo_dati")
     
     if dati:
+        # --- DEBUG DATI LETTI ---
+        st.write(f"DEBUG RECUPERO: Dati letti dal disco: {list(dati.keys())}")
+        st.write(f"DEBUG RECUPERO: Anagrafica nel disco: {dati.get('anagrafica', {})}")
+        
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
@@ -108,7 +117,14 @@ def recupera_stato_completo():
             storico_recuperato.append(item_copy)
             
         st.session_state.storico_report = storico_recuperato
+        
+        # --- DEBUG FINALE ---
+        st.write("DEBUG RECUPERO: Assegnazione completata.")
+        st.write(f"DEBUG RECUPERO: Session State Anagrafica finale: {st.session_state.anagrafica}")
+        
         return True
+    
+    st.write("DEBUG RECUPERO: Nessun dato trovato (dati è nullo)")
     return False
 
 
@@ -1226,36 +1242,25 @@ if utente_connesso:
 
                 salt = st.session_state.get("anagrafica_version", 0)
                 
-                # DEBUG: Stato del dizionario PRIMA del ciclo
-                print(f"DEBUG_INIZIO_RENDER: Stato anagrafica -> {st.session_state.anagrafica}")
-
                 for campo_id, label, tipo in campi:
-                    with st.container():
+                    
                         key_widget = f"widget_{campo_id}_{salt}"
                         
-                        # DEBUG: Cosa stiamo per passare al widget?
-                        valore_di_partenza = st.session_state.anagrafica.get(campo_id, "")
-                        print(f"DEBUG_WIDGET_PRE: Campo '{campo_id}' sta leggendo '{valore_di_partenza}'")
-
+                        # ASSEGNAZIONE DIRETTA NEL WIDGET
                         if tipo == "area":
-                            nuovo_valore = st.text_area(
+                            st.session_state.anagrafica[campo_id] = st.text_area(
                                 label, 
-                                value=valore_di_partenza,
+                                value=st.session_state.anagrafica.get(campo_id, ""),
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
                         else:
-                            nuovo_valore = st.text_input(
+                            st.session_state.anagrafica[campo_id] = st.text_input(
                                 label, 
-                                value=valore_di_partenza,
+                                value=st.session_state.anagrafica.get(campo_id, ""),
                                 key=key_widget,
                                 on_change=salva_stato_completo
                             )
-                        
-                        # DEBUG: Il widget ha restituito qualcosa di diverso?
-                        if nuovo_valore != valore_di_partenza:
-                            print(f"DEBUG_WIDGET_POST: Campo '{campo_id}' aggiornato a '{nuovo_valore}'")
-                            st.session_state.anagrafica[campo_id] = nuovo_valore
                         
 
         with st.expander("📝 Commessa e Oggetto"):
