@@ -1234,7 +1234,7 @@ if utente_connesso:
                             st.session_state.anagrafica_version += 1
                             
                             salva_stato_completo()
-                            #st.session_state.last_anagrafica_hash = audio_hash
+                            st.session_state.last_anagrafica_hash = audio_hash
                             set_bg_color("#b3ff99")
                             time.sleep(1)
                             st.rerun()
