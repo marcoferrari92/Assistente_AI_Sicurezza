@@ -182,66 +182,58 @@ def log_sidebar_debug_completo():
 
 
 def login():
-    # 1. CONTROLLO AUTOMATICO: Esiste un login salvato nel LocalStorage?
-    if "user_data" not in st.session_state:
-        # Usiamo un bucket dedicato per l'autenticazione
-        ls_auth = get_ls("AUTH_STORAGE") 
+    # 1. Flag per evitare loop di rerun infiniti
+    if "auth_checked" not in st.session_state:
+        st.session_state.auth_checked = False
+
+    # 2. CONTROLLO AUTOMATICO (Solo se non siamo già loggati e non abbiamo già controllato)
+    if "user_data" not in st.session_state and not st.session_state.auth_checked:
+        ls_auth = get_ls("AUTH_STORAGE")
         saved_user = ls_auth.getItem("logged_in_user")
         
         if saved_user:
-            # Ripristino automatico della sessione
             st.session_state.user_data = saved_user
-            # Recuperiamo anche i dati dell'applicazione salvati
-            recupera_stato_completo() 
-            st.rerun() # Ricarichiamo per evitare il flash della pagina di login
-            return st.session_state.user_data
+            recupera_stato_completo()
+            st.session_state.auth_checked = True # Segniamo che il controllo è avvenuto
+            st.rerun() 
+        else:
+            st.session_state.auth_checked = True # Non c'è nulla da ripristinare
 
-    # 2. SE NON ESISTE, MOSTRA LA SCHERMATA DI LOGIN
+    # Se l'utente è loggato, restituiscilo subito
+    if "user_data" in st.session_state:
+        return st.session_state.user_data
+
+    # 3. SCHERMATA DI LOGIN (Mostrata solo se user_data NON esiste)
     st.title("🔒 Imprendo")
     st.write("### Il tuo Assistente AI per la sicurezza nei cantieri")
     
-    username = st.text_input(
-        "Username (Nome)", 
-        key="login_username", 
-        autocomplete="username"
-    ).lower().strip()
-    
-    password = st.text_input(
-        "Password", 
-        type="password", 
-        key="login_password", 
-        autocomplete="current-password"
-    )
+    username = st.text_input("Username (Nome)", key="login_username").lower().strip()
+    password = st.text_input("Password", type="password", key="login_password")
     
     if st.button("Accedi", use_container_width=True):
         if "utenti" in st.secrets and username in st.secrets["utenti"]:
             db_user = st.secrets["utenti"][username]
             if password == db_user["password"]:
-                real_name = db_user.get("nome", username.capitalize())
-                
-                # Creiamo il dizionario utente
                 user_info = {
                     "username": username, 
                     "email": db_user["email"], 
-                    "nome": real_name,
+                    "nome": db_user.get("nome", username.capitalize()),
                     "id": db_user.get("id", "") 
                 }
                 
-                # Salva in session_state per l'uso immediato
+                # Salva sessione
                 st.session_state.user_data = user_info
                 
-                # Salva in LocalStorage per la persistenza futura
+                # Salva in LocalStorage
                 ls_auth = get_ls("AUTH_STORAGE")
                 ls_auth.setItem("logged_in_user", user_info)
                 
-                # Recupera i dati di lavoro associati
                 recupera_stato_completo()
-                
                 st.rerun()
             else:
-                st.error("❌ **Password errata!**")
+                st.error("❌ Password errata!")
         else:
-            st.error("❌ **Utente non trovato!**")
+            st.error("❌ Utente non trovato!")
             
     return None
 
