@@ -579,31 +579,23 @@ def remove_internal_borders(cell, top=False, bottom=False):
 
 
 
-def genera_report_finale(storico):
-
-
+def genera_report_finale(storico, uploaded_files=None):
+    # Ricarica sempre il template dal disco
     doc = Document("Template.docx")
-
+    
     font_name = st.session_state.settings.get("font", "Arial")
     font_size = st.session_state.settings.get("size", 9)
 
     # --- FUNZIONE DI SOSTITUZIONE ROBUSTA ---
     def replace_text_in_doc(doc, key, value, font_name, font_size):
-
         placeholder = f"{{{{{key}}}}}"
-
-        # Funzione interna per applicare lo stile al paragrafo
-        def apply_style_to_para(para):
-            for run in para.runs:
-                run.font.name = font_name
-                run.font.size = Pt(font_size)
-
         # Elaborazione paragrafi
         for para in doc.paragraphs:
             if placeholder in para.text:
                 para.text = para.text.replace(placeholder, value)
-                apply_style_to_para(para)
-                
+                for run in para.runs:
+                    run.font.name = font_name
+                    run.font.size = Pt(font_size)
         # Elaborazione tabelle
         for table in doc.tables:
             for row in table.rows:
@@ -611,13 +603,47 @@ def genera_report_finale(storico):
                     for para in cell.paragraphs:
                         if placeholder in para.text:
                             para.text = para.text.replace(placeholder, value)
-                            apply_style_to_para(para)
+                            for run in para.runs:
+                                run.font.name = font_name
+                                run.font.size = Pt(font_size)
 
-    # Eseguiamo la sostituzione per ogni chiave
+    # 1. Sostituzione Anagrafica (escludendo il segnaposto allegati se vuoi gestirlo a parte)
     if "anagrafica" in st.session_state:
         for key, value in st.session_state.anagrafica.items():
-            replace_text_in_doc(doc, key, value, font_name, font_size)
-    
+            if key != "allegati":
+                replace_text_in_doc(doc, key, value, font_name, font_size)
+
+    # 2. GESTIONE ALLEGATI (Logica estesa a Paragrafi e Tabelle)
+    def gestisci_allegati_in_container(container):
+        for p in container.paragraphs:
+            if "{{allegati}}" in p.text:
+                p.text = "" # Pulisce il tag
+                if uploaded_files:
+                    for f in uploaded_files:
+                        run = p.add_run(f"- {f.name}\n")
+                        run.bold = True
+                        run.font.name = font_name
+                        run.font.size = Pt(font_size)
+                        
+                        if f.type.startswith("image"):
+                            try:
+                                f.seek(0)
+                                p.add_run().add_picture(f, width=Inches(4.0))
+                                p.add_run("\n")
+                            except: pass
+                return True
+        return False
+
+    # Cerca nel corpo principale
+    if not gestisci_allegati_in_container(doc):
+        # Cerca in tutte le tabelle (come per gli altri campi)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if gestisci_allegati_in_container(cell):
+                        break
+
+
     # 1. Trova il paragrafo segnaposto
     target_paragraph = None
     for p in doc.paragraphs:
@@ -741,10 +767,12 @@ def genera_report_finale(storico):
         p_element.addprevious(table_element)
         p_element.getparent().remove(p_element)
 
+
     bio = io.BytesIO()
     doc.save(bio)
     bio.seek(0)
     return bio.getvalue()
+
 
 
 
@@ -1395,24 +1423,17 @@ if utente_connesso:
             uploaded_files = st.file_uploader(
                 "Carica allegati", 
                 accept_multiple_files=True, 
-                type=['pdf', 'jpg', 'png', 'txt'],
-                key="file_uploader_allegati",
-                on_change=salva_stato_completo
+                key="file_uploader_allegati"
             )
             
             if uploaded_files:
-                nomi_file = ", ".join([f.name for f in uploaded_files])
-                st.session_state.anagrafica["allegati"] = f"Elenco allegati: {nomi_file}"
-                # Il salvataggio è già coperto dall'on_change del file_uploader
-            else:
-                # Se non ci sono file, salviamo lo stato di "vuoto"
-                if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
-                    st.session_state.anagrafica["allegati"] = "Nessun allegato presente."
-                    salva_stato_completo()
-
-            # Opzionale: mostra un avviso
-            if st.session_state.anagrafica.get("allegati") != "Nessun allegato presente.":
-                st.info(f"💾 {st.session_state.anagrafica['allegati']}")
+                formati_immagini = ['image/jpeg', 'image/png', 'image/jpg', 'image/jpeg']
+                
+                for f in uploaded_files:
+                    if f.type not in formati_immagini:
+                        st.warning(f"⚠️ '{f.name}' è un file con formato non gestibile. **NON POSSO inserire questo tipo di file in un documento Word.** Verrà comunque elencato nel report come voce testuale, ma dovrai allegare il file fisicamente a parte.")
+                    else:
+                        st.success(f"✅ '{f.name}' verrà inserito graficamente nel report.")
 
 
 
@@ -1422,35 +1443,28 @@ if utente_connesso:
         
         if st.button("📄 Genera Report Finale"):
             with st.spinner("Generazione documento..."):
-                doc_bytes = genera_report_finale(st.session_state.storico_report)
-                st.session_state.doc_bytes = doc_bytes # Salviamo in session_state per l'email
+                files = st.session_state.get("file_uploader_allegati", [])
+                files = [f for f in files if f is not None]
+                
+                doc_bytes = genera_report_finale(st.session_state.storico_report, files)
+                st.session_state.doc_bytes = doc_bytes 
                 st.success("Report generato!")
 
-        # Mostra i pulsanti solo se il report è stato generato
         if "doc_bytes" in st.session_state:
             col_down, col_mail = st.columns(2)
             
             with col_down:
                 b64 = base64.b64encode(st.session_state.doc_bytes).decode()
-                href = f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Report_Sicurezza.docx" style="text-decoration:none; color:white; background-color:#FF4B4B; padding: 10px 20px; border-radius:5px; display:inline-block; width:100%; text-align:center;">✅ SCARICA IL REPORT</a>'
+                # Timestamp per evitare cache del browser
+                ts = int(time.time())
+                nome_file = f"Report_Sicurezza_{ts}.docx"
+                href = f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="{nome_file}" style="text-decoration:none; color:white; background-color:#FF4B4B; padding: 10px 20px; border-radius:5px; display:inline-block; width:100%; text-align:center;">✅ SCARICA IL REPORT</a>'
                 st.markdown(href, unsafe_allow_html=True)
-                # st.download_button(
-                #     label="✅ Scarica il report",
-                #     data=st.session_state.doc_bytes,
-                #     file_name="Report_Sicurezza.docx",
-                #     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                # )
             
             with col_mail:
                 if st.button("📧 Invia a me stesso via Email"):
                     destinatario = st.session_state.user_data["email"]
-                    with st.spinner(f"Invio email a {destinatario}..."):
-                        success, msg = invia_report_via_email_graph(
-                            st.session_state.doc_bytes, 
-                            "Report_Sicurezza.docx", 
-                            destinatario
-                        )
-                        if success:
-                            st.success(msg)
-                        else:
-                            st.error(f"Errore: {msg}")
+                    with st.spinner("Invio in corso..."):
+                        success, msg = invia_report_via_email_graph(st.session_state.doc_bytes, "Report_Sicurezza.docx", destinatario)
+                        if success: st.success(msg)
+                        else: st.error(f"Errore: {msg}")
