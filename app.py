@@ -54,12 +54,7 @@ def resetta_tutto_il_sistema():
         master.deleteItem("chiave_valida")
             
     st.session_state.ls_registry = {} # Pulisce il registro
-
-    # AGGIUNTA PER IL LOGOUT
-    ls_auth = get_ls("AUTH_STORAGE")
-    ls_auth.deleteItem("logged_in_user")
-    
-    st.toast("Logout e reset completati!", icon="🚪")
+    st.toast("Sistema resettato!", icon="🔄")
 
 # 3. Salvataggio
 def salva_stato_completo():
@@ -178,74 +173,60 @@ def log_sidebar_debug_completo():
 
 
 
-# --- INIZIALIZZAZIONE AUTENTICAZIONE (FUORI DALLE FUNZIONI) ---
-if "user_data" not in st.session_state and "auth_checked" not in st.session_state:
-    ls_auth = get_ls("AUTH_STORAGE")
-    saved_user = ls_auth.getItem("logged_in_user")
-    
-    if saved_user:
-        st.session_state.user_data = saved_user
-        recupera_stato_completo()
-    
-    st.session_state.auth_checked = True # Impostiamo la flag per non rientrare più qui
-    # Non chiamare st.rerun() qui! Il prossimo ciclo di Streamlit 
-    # caricherà automaticamente il nuovo stato senza forzare.
+
 
 
 def login():
-    # 1. Flag per evitare loop di rerun infiniti
-    if "auth_checked" not in st.session_state:
-        st.session_state.auth_checked = False
+    if "user_data" not in st.session_state:
+        st.session_state.user_data = None
 
-    # 2. CONTROLLO AUTOMATICO (Solo se non siamo già loggati e non abbiamo già controllato)
-    if "user_data" not in st.session_state and not st.session_state.auth_checked:
-        ls_auth = get_ls("AUTH_STORAGE")
-        saved_user = ls_auth.getItem("logged_in_user")
-        
-        if saved_user:
-            st.session_state.user_data = saved_user
-            recupera_stato_completo()
-            st.session_state.auth_checked = True # Segniamo che il controllo è avvenuto
-            st.rerun() 
-        else:
-            st.session_state.auth_checked = True # Non c'è nulla da ripristinare
-
-    # Se l'utente è loggato, restituiscilo subito
-    if "user_data" in st.session_state:
+    if st.session_state.user_data:
         return st.session_state.user_data
 
-    # 3. SCHERMATA DI LOGIN (Mostrata solo se user_data NON esiste)
     st.title("🔒 Imprendo")
     st.write("### Il tuo Assistente AI per la sicurezza nei cantieri")
     
-    username = st.text_input("Username (Nome)", key="login_username").lower().strip()
-    password = st.text_input("Password", type="password", key="login_password")
+    username = st.text_input(
+        "Username (Nome)", 
+        key="login_username", 
+        autocomplete="username"
+    ).lower().strip()
+    
+    password = st.text_input(
+        "Password", 
+        type="password", 
+        key="login_password", 
+        autocomplete="current-password"
+    )
     
     if st.button("Accedi", use_container_width=True):
         if "utenti" in st.secrets and username in st.secrets["utenti"]:
             db_user = st.secrets["utenti"][username]
             if password == db_user["password"]:
-                user_info = {
+                real_name = db_user.get("nome", username.capitalize())
+                
+                # 1. Impostiamo i dati utente
+                st.session_state.user_data = {
                     "username": username, 
                     "email": db_user["email"], 
-                    "nome": db_user.get("nome", username.capitalize()),
+                    "nome": real_name,
                     "id": db_user.get("id", "") 
                 }
                 
-                # Salva sessione
-                st.session_state.user_data = user_info
+                # 2. Inizializziamo l'anagrafica se non esiste
+                # if "anagrafica" not in st.session_state:
+                #     st.session_state.anagrafica = {}
                 
-                # Salva in LocalStorage
-                ls_auth = get_ls("AUTH_STORAGE")
-                ls_auth.setItem("logged_in_user", user_info)
-                
+                # ORA recupera i dati: questo andrà a riempire o sovrascrivere 
+                # i dizionari vuoti con quelli salvati nel browser
                 recupera_stato_completo()
+                
+                # 4. Ricarichiamo per entrare nell'app
                 st.rerun()
             else:
-                st.error("❌ Password errata!")
+                st.error(f"❌ **Password errata!**")
         else:
-            st.error("❌ Utente non trovato!")
-            
+            st.error(f"❌ **Utente non trovato!**")
     return None
 
 
