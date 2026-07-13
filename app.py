@@ -87,7 +87,7 @@ def salva_stato_completo():
     dati_appena_scritti = localS.getItem("imprendo_dati")
     if dati_appena_scritti:
         mandataria_scritta = dati_appena_scritti.get("anagrafica", {}).get("mandataria")
-        st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
+        #st.write(f"✅ DEBUG_VERIFICA: Valore letto dal LocalStorage DOPO il salvataggio: '{mandataria_scritta}'")
         if mandataria_scritta != st.session_state.anagrafica['mandataria']:
             st.error("⚠️ ATTENZIONE: Il dato letto è diverso da quello salvato!")
     else:
@@ -234,6 +234,7 @@ def login():
 
 
 def ottieni_account_exchange(user_email):
+    
     from O365 import Account
     
 
@@ -365,6 +366,20 @@ def set_bg_color(color, status_text=None):
         unsafe_allow_html=True
     )
 
+
+
+
+def get_img_bytes_optimized(pil_img, max_width=1000):
+
+    # Ridimensiona mantenendo il rapporto d'aspetto
+    w_percent       = (max_width / float(pil_img.size[0]))
+    h_size          = int((float(pil_img.size[1]) * float(w_percent)))
+    pil_img         = pil_img.resize((max_width, h_size), Image.Resampling.LANCZOS)
+    img_byte_arr    = io.BytesIO()
+
+    pil_img.save(img_byte_arr, format='JPEG', quality=60) 
+
+    return img_byte_arr.getvalue()
 
 
 
@@ -579,9 +594,18 @@ def remove_internal_borders(cell, top=False, bottom=False):
 
 
 
+
+@st.cache_data
+def get_template_bytes():
+    with open("Template.docx", "rb") as f:
+        return f.read()
+    
+
 def genera_report_finale(storico, uploaded_files=None):
-    # Ricarica sempre il template dal disco
-    doc = Document("Template.docx")
+    
+    # Creiamo un nuovo documento dai bytes cachati
+    template_data = get_template_bytes()
+    doc = Document(io.BytesIO(template_data))
     
     font_name = st.session_state.settings.get("font", "Arial")
     font_size = st.session_state.settings.get("size", 9)
@@ -618,19 +642,27 @@ def genera_report_finale(storico, uploaded_files=None):
         for p in container.paragraphs:
             if "{{allegati}}" in p.text:
                 p.text = "" # Pulisce il tag
-                if uploaded_files:
-                    for f in uploaded_files:
-                        run = p.add_run(f"- {f.name}\n")
+                
+                # Recuperiamo gli allegati ottimizzati dallo stato
+                allegati = st.session_state.get("allegati_ottimizzati", [])
+                
+                if allegati:
+                    for f_data in allegati:
+                        # Aggiunta nome file
+                        run = p.add_run(f"- {f_data['name']}\n")
                         run.bold = True
                         run.font.name = font_name
                         run.font.size = Pt(font_size)
                         
-                        if f.type.startswith("image"):
+                        # Inserimento immagine compressa
+                        if f_data['type'].startswith("image"):
                             try:
-                                f.seek(0)
-                                p.add_run().add_picture(f, width=Inches(4.0))
+                                # Creiamo uno stream dai bytes già ottimizzati
+                                img_stream = io.BytesIO(f_data['bytes'])
+                                p.add_run().add_picture(img_stream, width=Inches(4.0))
                                 p.add_run("\n")
-                            except: pass
+                            except Exception as e:
+                                st.error(f"Errore caricamento allegato {f_data['name']}: {e}")
                 return True
         return False
 
@@ -891,6 +923,201 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
     return resp.choices[0].message.content
 
 
+
+
+
+@st.fragment
+def form_anagrafiche():
+
+    with st.expander("👤 Anagrafiche", expanded=True):
+            with st.container():
+
+                # 1. Pulsante di registrazione unico
+                audio_data = mic_recorder(key="rec_anagrafica_totale", start_prompt="🎤", stop_prompt="⏹️")
+                
+                if audio_data:
+                    audio_hash = hash(str(audio_data['bytes']))
+                    if st.session_state.get("last_anagrafica_hash") != audio_hash:
+                        with st.spinner("L'AI sta estraendo i dati..."):
+                            set_bg_color("#D0AD00")
+
+                            dati = elabora_anagrafica_ai(audio_data['bytes'])
+                            
+                            # Aggiornamento dati
+                            st.session_state.anagrafica["mandataria"]   = str(dati.get("mandataria", "")).replace(", ", "\n")
+                            st.session_state.anagrafica["mandante"]     = str(dati.get("mandante", "")).replace(", ", "\n")
+                            st.session_state.anagrafica.update({
+                                "committente": dati.get("committente", ""),
+                                "indirizzo": dati.get("indirizzo", ""),
+                                "città": dati.get("città", ""),
+                                "provincia": dati.get("provincia", "")
+                            })
+
+                            st.session_state.anagrafica_version += 1
+                            
+                            st.session_state.last_anagrafica_hash = audio_hash
+                            set_bg_color("#b3ff99")
+
+                
+                # Lista definita fuori dal loop
+                campi = [
+                    ("mandataria", "Mandataria/e", "area"),
+                    ("mandante", "Mandante/i", "area"),
+                    ("committente", "Ragione Sociale Committente", "input"),
+                    ("indirizzo", "Indirizzo", "input"),
+                    ("città", "Città", "input"),
+                    ("provincia", "Provincia", "input")
+                ]
+
+                salt = st.session_state.get("anagrafica_version", 0)
+                
+                for campo_id, label, tipo in campi:
+                    
+                        key_widget = f"widget_{campo_id}_{salt}"
+                        
+                        # ASSEGNAZIONE DIRETTA NEL WIDGET
+                        if tipo == "area":
+                            st.session_state.anagrafica[campo_id] = st.text_area(
+                                label, 
+                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget
+                            )
+                        else:
+                            st.session_state.anagrafica[campo_id] = st.text_input(
+                                label, 
+                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget
+                            )
+
+
+@st.fragment
+def form_commessa():
+    with st.expander("📝 Commessa e Oggetto", expanded=True):
+                with st.container():
+
+                    # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
+                    salt = st.session_state.get("anagrafica_version", 0)
+
+                    # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
+                    campi_tecnici = [
+                        ("commessa", "Commessa", "rec_commessa", "last_commessa_hash"),
+                        ("oggetto", "Oggetto", "rec_oggetto", "last_oggetto_hash")
+                    ]
+
+                    for campo_id, label, key_rec, key_hash in campi_tecnici:
+                        with st.container():
+                            # Registratore
+                            audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
+                            
+                            # Logica di elaborazione
+                            if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
+                                current_hash = hash(str(audio_data['bytes']))
+                                if st.session_state.get(key_hash) != current_hash:
+                                    with st.spinner(f"Elaborazione {label}..."):
+                                        set_bg_color("#D0AD00")
+                                        
+                                        risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
+                                        st.session_state.anagrafica[campo_id] = risultato
+                                        st.session_state[key_hash] = current_hash
+                                        
+                                        # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
+                                        st.session_state.anagrafica_version += 1
+                                        
+                                        set_bg_color("#b3ff99")
+
+                            # Widget con chiave dinamica basata sul salt
+                            key_widget = f"widget_{campo_id}_{salt}"
+                            
+                            st.session_state.anagrafica[campo_id] = st.text_area(
+                                label, 
+                                value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget
+                            )
+
+
+@st.fragment
+def form_cantiere():
+        
+        with st.expander("🛠️ Attività e Personale", expanded=True):
+    
+            with st.container():
+
+                # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
+                salt = st.session_state.get("anagrafica_version", 0)
+
+                # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
+                campi_tecnici = [
+                    ("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash"),
+                    ("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash"),
+                    ("personale", "Personale Presente", "rec_personale", "last_personale_hash"),
+                    ("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
+                ]
+
+                for campo_id, label, key_rec, key_hash in campi_tecnici:
+                    with st.container():
+                        # Registratore
+                        audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
+                        
+                        # Logica di elaborazione
+                        if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
+                            current_hash = hash(str(audio_data['bytes']))
+                            if st.session_state.get(key_hash) != current_hash:
+                                with st.spinner(f"Elaborazione {label}..."):
+                                    set_bg_color("#D0AD00")
+                                    
+                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
+                                    st.session_state.anagrafica[campo_id] = risultato
+                                    st.session_state[key_hash] = current_hash
+                                    
+                                    # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
+                                    st.session_state.anagrafica_version += 1
+                                    
+                                    #salva_stato_completo()
+                                    set_bg_color("#b3ff99")
+                                    time.sleep(1)
+                                    #st.rerun()
+
+                        # Widget con chiave dinamica basata sul salt
+                        key_widget = f"widget_{campo_id}_{salt}"
+                        
+                        st.session_state.anagrafica[campo_id] = st.text_area(
+                            label, 
+                            value=st.session_state.anagrafica.get(campo_id, ""),
+                            key=key_widget
+                            #on_change=salva_stato_completo
+                        )
+
+@st.fragment
+def form_allegati():
+    with st.expander("📎 Allegati", expanded=True):
+        uploaded_files = st.file_uploader(
+            "Carica allegati", 
+            accept_multiple_files=True, 
+            key="file_uploader_allegati"
+        )
+        
+        # Inizializziamo una lista per gli allegati ottimizzati
+        st.session_state.allegati_ottimizzati = []
+        
+        if uploaded_files:
+            for f in uploaded_files:
+                # Verifica se è un'immagine
+                if f.type.startswith('image'):
+                    # APPLICHIAMO LA TUA FUNZIONE
+                    img = Image.open(f).convert("RGB")
+                    bytes_ottimizzati = get_img_bytes_optimized(img, max_width=1200)
+                    
+                    # Salviamo i byte pronti per essere inseriti in Word
+                    st.session_state.allegati_ottimizzati.append({
+                        "name": f.name,
+                        "bytes": bytes_ottimizzati,
+                        "type": f.type
+                    })
+                    st.success(f"✅ '{f.name}' ottimizzato.")
+                else:
+                    st.warning(f"⚠️ '{f.name}' non è un'immagine.")
+
+
 # APP PRINCIPALE
 recupera_stato_completo() 
 
@@ -937,36 +1164,30 @@ else:
 set_bg_color(color, status_msg)
 
 # --- 3. CONTENUTO PRINCIPALE ---
+def barra_salvataggio_superiore():
+    # Creiamo un contenitore fisso in alto
+    with st.container():
+        col1, col2 = st.columns([0.7, 0.3])
+        
+        with col1:
+            st.write("### 📝 Dati di Cantiere")
+            
+        with col2:
+            # Pulsante visibile subito, stile primario
+            if st.button("💾 SALVA DATI", type="primary", use_container_width=True):
+                with st.spinner("Salvataggio in corso..."):
+                    # Qui forziamo l'aggiornamento di session_state dai widget
+                    # (Streamlit lo fa automaticamente se usi le key, ma è un buon momento per forzare)
+                    salva_stato_completo()
+                    st.toast("Salvato correttamente!", icon="✅")
+    st.divider()
+
+# Chiamata alla funzione subito dopo il Login
 if utente_connesso:
+    barra_salvataggio_superiore()
 
     status_placeholder = st.empty()
-    
-    # if st.sidebar.button("💾 SALVA BOZZA", type="primary"):
-    #     salt = st.session_state.get("anagrafica_version", 0)
-        
-    #     # 1. ESTRAZIONE FORZATA DAI BOX (Widget)
-    #     # Creiamo un nuovo dizionario con i dati "freschi" presi dai campi
-    #     dati_aggiornati = {}
-        
-    #     # Elenco di tutte le key che hai usato nei text_area/text_input
-    #     # Assicurati che corrispondano ai nomi delle tue key nei widget
-    #     for campo in ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
-    #                 "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]:
-            
-    #         key_widget = f"widget_{campo}_{salt}"
-    #         # Prendiamo il valore direttamente dal dizionario di sessione di Streamlit
-    #         # usando la key del widget: questo garantisce di leggere cosa c'è NEL BOX
-    #         dati_aggiornati[campo] = st.session_state.get(key_widget, "")
 
-    #     # 2. AGGIORNAMENTO STATO
-    #     st.session_state.anagrafica.update(dati_aggiornati)
-        
-    #     # 3. SALVATAGGIO
-    #     salva_stato_completo()
-        
-    #     st.sidebar.success("Dati estratti dai box e salvati!")
-    #     time.sleep(1)
-    #     st.rerun()
 
     st.sidebar.subheader("Reset App")
     if st.sidebar.button("🔄 Inizia da zero"):
@@ -1018,17 +1239,31 @@ if utente_connesso:
             set_bg_color("#ffffff") 
 
         if audio and file:
-
             audio_hash = hash(str(audio['bytes']))
             
             # Evita esecuzioni multiple
             if st.session_state.get("last_audio_hash") != audio_hash:
+                
+                # 1. Ottimizzazione Immagine (nuova logica)
+                img = Image.open(file).convert("RGB")
+                img_bytes_ottimizzati = get_img_bytes_optimized(img)
+                
+                # Creiamo il wrapper per mantenere la compatibilità
+                class MockFile:
+                    def __init__(self, name, data): 
+                        self.name = name
+                        self._data = data
+                    def getvalue(self): return self._data
+                
+                file_ottimizzato = MockFile(file.name, img_bytes_ottimizzati)
 
+                # 2. Ripristino Spinner e Colori
                 with st.spinner("Analisi in corso..."):
-                    # Esecuzione Analisi
                     set_bg_color("#D0AD00")
                     st.session_state.app_state = "working"
-                    report, testo = analizza_sicurezza_cantiere(audio['bytes'], file)
+                    
+                    # 3. Esecuzione con il file ottimizzato
+                    report, testo = analizza_sicurezza_cantiere(audio['bytes'], file_ottimizzato)
                     
                     # Aggiornamento storico
                     if "storico_report" not in st.session_state: 
@@ -1038,31 +1273,39 @@ if utente_connesso:
                         "nome_file": file.name, 
                         "report": report, 
                         "trascrizione": testo, 
-                        "bytes": file.getvalue(), 
+                        "bytes": img_bytes_ottimizzati, # Salva i bytes leggeri!
                         "version": 1
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
                     salva_stato_completo()
+                    
+                    # 4. Feedback finale
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(2)
                     st.rerun()
 
-    # --- TAB 2: VISUALIZZAZIONE E GESTIONE (REWORK/INTEGRAZIONE) ---
+    # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
         if st.session_state.storico_report:
-            for idx, data in enumerate(st.session_state.storico_report):
-                expander_key = f"expander_idx_{idx}_id_{hash(str(data))}"
-
+            # Creiamo una copia della lista per evitare problemi di iterazione durante la modifica
+            report_list = st.session_state.storico_report
+            
+            for idx in range(len(report_list)):
+                data = report_list[idx]
+                
+                # CHIAVE SEMPLICE E UNIVOVA BASATA SULL'INDICE ATTUALE
+                # Aggiungiamo un timestamp casuale se vuoi forzare il reset totale, 
+                # ma per ora basiamoci sull'indice.
+                expander_key = f"expander_box_{idx}"
+                
                 nome_file = data["nome_file"]
                 report = data["report"]
-                ver = data.get("version", 1) 
                 punti_totali = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
                 titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
                 
-                # Usa l'indice, che è costante finché l'elemento non viene rimosso
-                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{idx}"):
+                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=expander_key):
                     col1, col2 = st.columns([1, 1])
                     with col1:
                         
@@ -1090,7 +1333,7 @@ if utente_connesso:
 
                         # 3. Logica per aggiungere il punto se l'utente clicca
                         if click_data is not None:
-                            if st.button("📍 Fissa punto qui", key=f"fix_{idx}_{ver}"):
+                            if st.button("📍 Fissa punto qui", key=f"fix_{idx}"):
                                 w, h = img_display.size
                                 x_norm = (click_data['x'] / w) * 1000
                                 y_norm = (click_data['y'] / h) * 1000
@@ -1113,7 +1356,7 @@ if utente_connesso:
                                     })
                                 
                                 st.session_state.storico_report[idx]['report'] = report
-                                salva_stato_completo()
+                                #salva_stato_completo()
                                 st.rerun()
 
                         
@@ -1121,28 +1364,20 @@ if utente_connesso:
                         c1, c2, c3, c4 = st.columns(4)
 
                         with c1:
-                            if st.button("🗑️ Elimina", key=f"del_button_{idx}"):
-                                # 1. Rimuovi i dati
-                                del st.session_state.storico_report[idx]
+                            if st.button("🗑️ Elimina", key=f"del_{idx}"):
+                                # 1. Rimuovi l'elemento corretto dalla lista
+                                st.session_state.storico_report.pop(idx)
                                 
-                                # 2. Pulisci le chiavi dei widget associati a quell'indice
-                                chiavi_da_rimuovere = [k for k in st.session_state.keys() if f"_{idx}" in k]
-                                for k in chiavi_da_rimuovere:
+                                # 2. Pulisci SOLO le chiavi associate all'indice rimosso
+                                # (Questo è opzionale ma pulito)
+                                keys_to_delete = [k for k in st.session_state.keys() if f"_{idx}" in k]
+                                for k in keys_to_delete:
                                     del st.session_state[k]
                                     
+                                # 3. Salva e Ricarica
                                 salva_stato_completo()
                                 st.rerun()
-
-                        # if c2.button("🔄 Rifai", key=f"redo_{idx}"):
-                        #     st.session_state.active_recorder = {"idx": idx, "mode": "rework"}
-                        #     salva_stato_completo()
-                        #     st.rerun()
-
-                        # if c3.button("➕ Integra", key=f"int_{idx}"):
-                        #     st.session_state.active_recorder = {"idx": idx, "mode": "integration"}
-                        #     salva_stato_completo()
-                        #     st.rerun()
-                        
+                            
                         # NUOVO PULSANTE: Svuota solo le coordinate (i testi restano!)
 
                         if c4.button("🧹 Svuota Marker", key=f"clear_markers_{idx}"):
@@ -1154,37 +1389,37 @@ if utente_connesso:
                             st.rerun()
 
                         # --- REGISTRATORE CONTESTUALE ---
-                        if st.session_state.get("active_recorder") and st.session_state.active_recorder["idx"] == idx:
-                            st.info(f"🎤 Registra per {st.session_state.active_recorder['mode'].upper()}...")
-                            audio_attivo = mic_recorder(start_prompt="⏺️ AVVIA", stop_prompt="⏹️ ANALIZZA", key=f"rec_{idx}")
+                        # if st.session_state.get("active_recorder") and st.session_state.active_recorder["idx"] == idx:
+                        #     st.info(f"🎤 Registra per {st.session_state.active_recorder['mode'].upper()}...")
+                        #     audio_attivo = mic_recorder(start_prompt="⏺️ AVVIA", stop_prompt="⏹️ ANALIZZA", key=f"rec_{idx}")
                             
-                            if audio_attivo:
-                                with st.spinner("Analisi in corso..."):
-                                    class MockFile:
-                                        def __init__(self, name, data): self.name = name; self._data = data
-                                        def getvalue(self): return self._data
+                        #     if audio_attivo:
+                        #         with st.spinner("Analisi in corso..."):
+                        #             class MockFile:
+                        #                 def __init__(self, name, data): self.name = name; self._data = data
+                        #                 def getvalue(self): return self._data
                                     
-                                    file_mock = MockFile(data["nome_file"], data["bytes"])
-                                    mode = st.session_state.active_recorder["mode"]
+                        #             file_mock = MockFile(data["nome_file"], data["bytes"])
+                        #             mode = st.session_state.active_recorder["mode"]
                                     
-                                    if mode == "rework":
-                                        report, testo = analizza_sicurezza_cantiere(audio_attivo['bytes'], file_mock)
-                                    else:
-                                        verbale_attuale = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
-                                        report, testo = integra_sicurezza_cantiere(audio_attivo['bytes'], file_mock, verbale_attuale)
+                        #             if mode == "rework":
+                        #                 report, testo = analizza_sicurezza_cantiere(audio_attivo['bytes'], file_mock)
+                        #             else:
+                        #                 verbale_attuale = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
+                        #                 report, testo = integra_sicurezza_cantiere(audio_attivo['bytes'], file_mock, verbale_attuale)
                                     
-                                    new_v = st.session_state.get("version_counter", 0) + 1
-                                    st.session_state.version_counter = new_v
-                                    st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
-                                    salva_stato_completo()
+                        #             new_v = st.session_state.get("version_counter", 0) + 1
+                        #             st.session_state.version_counter = new_v
+                        #             st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
+                        #             #salva_stato_completo()
                                     
-                                    # Reset Edits
-                                    for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
-                                    st.session_state.edits[f"edit_testo_{idx}"] = testo
-                                    salva_stato_completo()
+                        #             # Reset Edits
+                        #             for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
+                        #             st.session_state.edits[f"edit_testo_{idx}"] = testo
+                        #             #salva_stato_completo()
                                     
-                                    del st.session_state.active_recorder
-                                    st.rerun()
+                        #             del st.session_state.active_recorder
+                        #             st.rerun()
                     
                     with col2:
                         st.markdown("#### Analisi")
@@ -1208,8 +1443,8 @@ if utente_connesso:
                             "Modifica il verbale:", 
                             value=valore_attuale, 
                             height=230,
-                            key=key_testo,  
-                            on_change=salva_stato_completo 
+                            key=key_testo 
+                            #on_change=salva_stato_completo 
                         )
                         
                         st.markdown("#### ⚠️ Punti critici rilevati")
@@ -1231,8 +1466,8 @@ if utente_connesso:
                                     f"{idx_p + 1}. {p.get('elemento', 'Punto')} ({p.get('oggetto', 'Nota')})",
                                     value=st.session_state.edits[key_punto],
                                     height=130,
-                                    key=key_punto,
-                                    on_change=salva_stato_completo
+                                    key=key_punto
+                                    #on_change=salva_stato_completo
                                 )
                             
                             with c_punto2:
@@ -1252,188 +1487,29 @@ if utente_connesso:
     
     with tab3:
 
-
-        with st.expander("👤 Anagrafiche"):
-            with st.container():
-
-                # 1. Pulsante di registrazione unico
-                audio_data = mic_recorder(key="rec_anagrafica_totale", start_prompt="🎤", stop_prompt="⏹️")
-                
-                if audio_data:
-                    audio_hash = hash(str(audio_data['bytes']))
-                    if st.session_state.get("last_anagrafica_hash") != audio_hash:
-                        with st.spinner("L'AI sta estraendo i dati..."):
-                            set_bg_color("#D0AD00")
-
-                            dati = elabora_anagrafica_ai(audio_data['bytes'])
-                            
-                            # Aggiornamento dati
-                            st.session_state.anagrafica["mandataria"]   = str(dati.get("mandataria", "")).replace(", ", "\n")
-                            st.session_state.anagrafica["mandante"]     = str(dati.get("mandante", "")).replace(", ", "\n")
-                            st.session_state.anagrafica.update({
-                                "committente": dati.get("committente", ""),
-                                "indirizzo": dati.get("indirizzo", ""),
-                                "città": dati.get("città", ""),
-                                "provincia": dati.get("provincia", "")
-                            })
-
-                            # !!! QUESTO È QUELLO CHE MANCAVA !!!
-                            # Incrementiamo la versione per cambiare la chiave dei widget
-                            st.session_state.anagrafica_version += 1
-                            
-                            salva_stato_completo()
-                            st.session_state.last_anagrafica_hash = audio_hash
-                            set_bg_color("#b3ff99")
-                            time.sleep(1)
-                            st.rerun()
-                
-                # Lista definita fuori dal loop
-                campi = [
-                    ("mandataria", "Mandataria/e", "area"),
-                    ("mandante", "Mandante/i", "area"),
-                    ("committente", "Ragione Sociale Committente", "input"),
-                    ("indirizzo", "Indirizzo", "input"),
-                    ("città", "Città", "input"),
-                    ("provincia", "Provincia", "input")
-                ]
-
-                salt = st.session_state.get("anagrafica_version", 0)
-                
-                for campo_id, label, tipo in campi:
-                    
-                        key_widget = f"widget_{campo_id}_{salt}"
+        form_anagrafiche()
                         
-                        # ASSEGNAZIONE DIRETTA NEL WIDGET
-                        if tipo == "area":
-                            st.session_state.anagrafica[campo_id] = st.text_area(
-                                label, 
-                                value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget,
-                                on_change=salva_stato_completo
-                            )
-                        else:
-                            st.session_state.anagrafica[campo_id] = st.text_input(
-                                label, 
-                                value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget,
-                                on_change=salva_stato_completo
-                            )
-                        
+        form_commessa()
 
-        with st.expander("📝 Commessa e Oggetto"):
-            with st.container():
+        form_cantiere()
 
-                # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
-                salt = st.session_state.get("anagrafica_version", 0)
+        form_allegati()
 
-                # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
-                campi_tecnici = [
-                    ("commessa", "Commessa", "rec_commessa", "last_commessa_hash"),
-                    ("oggetto", "Oggetto", "rec_oggetto", "last_oggetto_hash")
-                ]
-
-                for campo_id, label, key_rec, key_hash in campi_tecnici:
-                    with st.container():
-                        # Registratore
-                        audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
-                        
-                        # Logica di elaborazione
-                        if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
-                            current_hash = hash(str(audio_data['bytes']))
-                            if st.session_state.get(key_hash) != current_hash:
-                                with st.spinner(f"Elaborazione {label}..."):
-                                    set_bg_color("#D0AD00")
-                                    
-                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
-                                    st.session_state.anagrafica[campo_id] = risultato
-                                    st.session_state[key_hash] = current_hash
-                                    
-                                    # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
-                                    st.session_state.anagrafica_version += 1
-                                    
-                                    salva_stato_completo()
-                                    set_bg_color("#b3ff99")
-                                    time.sleep(1)
-                                    st.rerun()
-
-                        # Widget con chiave dinamica basata sul salt
-                        key_widget = f"widget_{campo_id}_{salt}"
-                        
-                        st.session_state.anagrafica[campo_id] = st.text_area(
-                            label, 
-                            value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
-                        )
-
-
-        
-        # EXPANDER 3: ATTIVITÀ E PERSONALE
-        with st.expander("🛠️ Attività e Personale", expanded=True):
-    
-            with st.container():
-
-                # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
-                salt = st.session_state.get("anagrafica_version", 0)
-
-                # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
-                campi_tecnici = [
-                    ("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash"),
-                    ("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash"),
-                    ("personale", "Personale Presente", "rec_personale", "last_personale_hash"),
-                    ("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
-                ]
-
-                for campo_id, label, key_rec, key_hash in campi_tecnici:
-                    with st.container():
-                        # Registratore
-                        audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
-                        
-                        # Logica di elaborazione
-                        if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
-                            current_hash = hash(str(audio_data['bytes']))
-                            if st.session_state.get(key_hash) != current_hash:
-                                with st.spinner(f"Elaborazione {label}..."):
-                                    set_bg_color("#D0AD00")
-                                    
-                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
-                                    st.session_state.anagrafica[campo_id] = risultato
-                                    st.session_state[key_hash] = current_hash
-                                    
-                                    # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
-                                    st.session_state.anagrafica_version += 1
-                                    
-                                    salva_stato_completo()
-                                    set_bg_color("#b3ff99")
-                                    time.sleep(1)
-                                    st.rerun()
-
-                        # Widget con chiave dinamica basata sul salt
-                        key_widget = f"widget_{campo_id}_{salt}"
-                        
-                        st.session_state.anagrafica[campo_id] = st.text_area(
-                            label, 
-                            value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget,
-                            on_change=salva_stato_completo
-                        )
-
-
-        with st.expander("📎 Allegati"):
-            uploaded_files = st.file_uploader(
-                "Carica allegati", 
-                accept_multiple_files=True, 
-                key="file_uploader_allegati"
-            )
+        # with st.expander("📎 Allegati"):
+        #     uploaded_files = st.file_uploader(
+        #         "Carica allegati", 
+        #         accept_multiple_files=True, 
+        #         key="file_uploader_allegati"
+        #     )
             
-            if uploaded_files:
-                formati_immagini = ['image/jpeg', 'image/png', 'image/jpg', 'image/jpeg']
+        #     if uploaded_files:
+        #         formati_immagini = ['image/jpeg', 'image/png', 'image/jpg', 'image/jpeg']
                 
-                for f in uploaded_files:
-                    if f.type not in formati_immagini:
-                        st.warning(f"⚠️ '{f.name}' è un file con formato non gestibile. **NON POSSO inserire questo tipo di file in un documento Word.** Verrà comunque elencato nel report come voce testuale, ma dovrai allegare il file fisicamente a parte.")
-                    else:
-                        st.success(f"✅ '{f.name}' verrà inserito graficamente nel report.")
+        #         for f in uploaded_files:
+        #             if f.type not in formati_immagini:
+        #                 st.warning(f"⚠️ '{f.name}' è un file con formato non gestibile. **NON POSSO inserire questo tipo di file in un documento Word.** Verrà comunque elencato nel report come voce testuale, ma dovrai allegare il file fisicamente a parte.")
+        #             else:
+        #                 st.success(f"✅ '{f.name}' verrà inserito graficamente nel report.")
 
 
 
