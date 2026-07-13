@@ -1431,12 +1431,15 @@ if utente_connesso:
             col_down, col_mail = st.columns(2)
             
             with col_down:
-                st.download_button(
-                    label="✅ Scarica il report",
-                    data=st.session_state.doc_bytes,
-                    file_name="Report_Sicurezza.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
+                b64 = base64.b64encode(st.session_state.doc_bytes).decode()
+                href = f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Report_Sicurezza.docx" style="text-decoration:none; color:white; background-color:#FF4B4B; padding: 10px 20px; border-radius:5px; display:inline-block; width:100%; text-align:center;">✅ SCARICA IL REPORT</a>'
+                st.markdown(href, unsafe_allow_html=True)
+                # st.download_button(
+                #     label="✅ Scarica il report",
+                #     data=st.session_state.doc_bytes,
+                #     file_name="Report_Sicurezza.docx",
+                #     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                # )
             
             with col_mail:
                 if st.button("📧 Invia a me stesso via Email"):
