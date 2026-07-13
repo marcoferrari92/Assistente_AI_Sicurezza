@@ -178,7 +178,18 @@ def log_sidebar_debug_completo():
 
 
 
-
+# --- INIZIALIZZAZIONE AUTENTICAZIONE (FUORI DALLE FUNZIONI) ---
+if "user_data" not in st.session_state and "auth_checked" not in st.session_state:
+    ls_auth = get_ls("AUTH_STORAGE")
+    saved_user = ls_auth.getItem("logged_in_user")
+    
+    if saved_user:
+        st.session_state.user_data = saved_user
+        recupera_stato_completo()
+    
+    st.session_state.auth_checked = True # Impostiamo la flag per non rientrare più qui
+    # Non chiamare st.rerun() qui! Il prossimo ciclo di Streamlit 
+    # caricherà automaticamente il nuovo stato senza forzare.
 
 
 def login():
