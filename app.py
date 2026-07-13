@@ -54,7 +54,12 @@ def resetta_tutto_il_sistema():
         master.deleteItem("chiave_valida")
             
     st.session_state.ls_registry = {} # Pulisce il registro
-    st.toast("Sistema resettato!", icon="🔄")
+
+    # AGGIUNTA PER IL LOGOUT
+    ls_auth = get_ls("AUTH_STORAGE")
+    ls_auth.deleteItem("logged_in_user")
+    
+    st.toast("Logout e reset completati!", icon="🚪")
 
 # 3. Salvataggio
 def salva_stato_completo():
@@ -177,12 +182,21 @@ def log_sidebar_debug_completo():
 
 
 def login():
+    # 1. CONTROLLO AUTOMATICO: Esiste un login salvato nel LocalStorage?
     if "user_data" not in st.session_state:
-        st.session_state.user_data = None
+        # Usiamo un bucket dedicato per l'autenticazione
+        ls_auth = get_ls("AUTH_STORAGE") 
+        saved_user = ls_auth.getItem("logged_in_user")
+        
+        if saved_user:
+            # Ripristino automatico della sessione
+            st.session_state.user_data = saved_user
+            # Recuperiamo anche i dati dell'applicazione salvati
+            recupera_stato_completo() 
+            st.rerun() # Ricarichiamo per evitare il flash della pagina di login
+            return st.session_state.user_data
 
-    if st.session_state.user_data:
-        return st.session_state.user_data
-
+    # 2. SE NON ESISTE, MOSTRA LA SCHERMATA DI LOGIN
     st.title("🔒 Imprendo")
     st.write("### Il tuo Assistente AI per la sicurezza nei cantieri")
     
@@ -205,28 +219,30 @@ def login():
             if password == db_user["password"]:
                 real_name = db_user.get("nome", username.capitalize())
                 
-                # 1. Impostiamo i dati utente
-                st.session_state.user_data = {
+                # Creiamo il dizionario utente
+                user_info = {
                     "username": username, 
                     "email": db_user["email"], 
                     "nome": real_name,
                     "id": db_user.get("id", "") 
                 }
                 
-                # 2. Inizializziamo l'anagrafica se non esiste
-                # if "anagrafica" not in st.session_state:
-                #     st.session_state.anagrafica = {}
+                # Salva in session_state per l'uso immediato
+                st.session_state.user_data = user_info
                 
-                # ORA recupera i dati: questo andrà a riempire o sovrascrivere 
-                # i dizionari vuoti con quelli salvati nel browser
+                # Salva in LocalStorage per la persistenza futura
+                ls_auth = get_ls("AUTH_STORAGE")
+                ls_auth.setItem("logged_in_user", user_info)
+                
+                # Recupera i dati di lavoro associati
                 recupera_stato_completo()
                 
-                # 4. Ricarichiamo per entrare nell'app
                 st.rerun()
             else:
-                st.error(f"❌ **Password errata!**")
+                st.error("❌ **Password errata!**")
         else:
-            st.error(f"❌ **Utente non trovato!**")
+            st.error("❌ **Utente non trovato!**")
+            
     return None
 
 
