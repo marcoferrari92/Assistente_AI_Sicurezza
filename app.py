@@ -1284,7 +1284,7 @@ if utente_connesso:
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(2)
-                    st.rerun()
+                    #st.rerun()
 
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
@@ -1357,7 +1357,7 @@ if utente_connesso:
                                 
                                 st.session_state.storico_report[idx]['report'] = report
                                 #salva_stato_completo()
-                                st.rerun()
+                                #st.rerun()
 
                         
                         # 1. PULSANTI DI SISTEMA (Spostati in alto per evitare conflitti)
@@ -1385,7 +1385,7 @@ if utente_connesso:
                                 for p in img_data['punti_critici']:
                                     p['coordinate'] = {'x': None, 'y': None} # Rende i cerchi invisibili
                             st.session_state.storico_report[idx]['report'] = report
-                            salva_stato_completo()
+                            #salva_stato_completo()
                             st.rerun()
 
                         # --- REGISTRATORE CONTESTUALE ---
