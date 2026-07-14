@@ -146,16 +146,21 @@ def form_allegati():
                     img = Image.open(f).convert("RGB")
                     bytes_ottimizzati = get_img_bytes_optimized(img, max_width=1200)
                     
-                    # Salviamo i byte pronti per essere inseriti in Word
+                    # SALVATAGGIO SU DISCO (alleggerisce la RAM)
+                    temp_id = str(uuid.uuid4())
+                    temp_path = f"/tmp/allegato_{temp_id}.jpg"
+                    with open(temp_path, "wb") as f_out:
+                        f_out.write(bytes_ottimizzati)
+                    
+                    # Salviamo il riferimento al file
                     st.session_state.allegati_ottimizzati.append({
                         "name": f.name,
-                        "bytes": bytes_ottimizzati,
+                        "path": temp_path, 
                         "type": f.type
                     })
                     st.success(f"✅ '{f.name}' pronto a essere inserito nel report finale.")
                 else:
                     st.warning(f"⚠️ '{f.name}' non è formato di file inseribile nel report Word. Aggiungerò il nome all'elenco allegati ma il file dovrà essere allegato manualmente.")
-
 
 
 @st.fragment

@@ -94,10 +94,13 @@ def genera_report_finale(storico, uploaded_files=None):
                         run.font.size = Pt(font_size)
                         
                         # Inserimento immagine compressa
+                        # Invece di usare f_data['bytes'], leggi dal path:
                         if f_data['type'].startswith("image"):
                             try:
-                                # Creiamo uno stream dai bytes già ottimizzati
-                                img_stream = io.BytesIO(f_data['bytes'])
+                                # Leggi i byte dal percorso salvato
+                                with open(f_data['path'], "rb") as f_in:
+                                    img_stream = io.BytesIO(f_in.read())
+                                    
                                 p.add_run().add_picture(img_stream, width=Inches(4.0))
                                 p.add_run("\n")
                             except Exception as e:
