@@ -51,34 +51,46 @@ def get_ls(chiave):
 
 
 def resetta_tutto_il_sistema():
-    # 1. Definisci le chiavi base necessarie per non far crashare l'app
-    chiavi_base = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
-                   "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
-    
-    # 2. Resetta i dati
-    st.session_state.anagrafica = {k: "" for k in chiavi_base} # Ricrea il dizionario con valori vuoti
+    # 1. Pulisce la memoria immediata (Session State)
+    keys_to_keep = ["ls_master", "debug_log"] # Manteniamo solo il log e il master pointer
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep:
+            del st.session_state[key]
+            
+    # 2. Re-inizializza le strutture base
+    st.session_state.anagrafica = {
+        "mandataria": "", "mandante": "", "committente": "", "indirizzo": "", 
+        "città": "", "provincia": "", "commessa": "", "oggetto": "", 
+        "attività": "", "coordinamento": "", "personale": "", "verbali": ""
+    }
     st.session_state.storico_report = []
     st.session_state.edits = {}
-    st.session_state.user_data = None
-    
-    # 3. Logica di cancellazione localStorage esistente
-    master = get_ls("MASTER_POINTER")
-    chiave = master.getItem("chiave_valida")
-    if chiave:
-        try:
-            get_ls(chiave).deleteItem("imprendo_dati")
-        except: pass
-        master.deleteItem("chiave_valida")
+    st.session_state.widget_version = {}
+    st.session_state.anagrafica_version = 0
+
+    # 3. Pulisce il LocalStorage (Fondamentale)
+    try:
+        ls = st.session_state.ls_master
+        chiave_reale = ls.getItem("chiave_valida")
+        if chiave_reale:
+            # Eliminiamo i dati salvati
+            localS = LocalStorage(key=chiave_reale)
+            localS.setItem("imprendo_dati", None) # Sovrascrive con nulla
+            # Eliminiamo il puntatore master
+            ls.setItem("chiave_valida", None)
             
-    st.session_state.ls_registry = {}
-    import glob
-    import os
-    for f in glob.glob("/tmp/*.jpg"): # O un pattern più specifico tipo /tmp/allegato_*.jpg
-        try:
-            os.remove(f)
-        except:
-            pass
-    st.toast("Sistema resettato!", icon="🔄")
+        # 4. Pulisce la cartella /tmp (le foto caricate)
+        import glob
+        for f in glob.glob("/tmp/allegato_*.jpg") + glob.glob("/tmp/*.jpg"):
+            try:
+                os.remove(f)
+            except:
+                pass
+                
+        st.session_state.debug_log = "SISTEMA RESETTATO CON SUCCESSO."
+        
+    except Exception as e:
+        st.session_state.debug_log = f"ERRORE RESET: {str(e)}"
 
 
 
