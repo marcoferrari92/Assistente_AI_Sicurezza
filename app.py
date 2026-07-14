@@ -880,14 +880,12 @@ def elabora_anagrafica_ai(audio_bytes):
     
     Restituisci JSON con queste chiavi (se un dato manca, metti una stringa vuota):
     {{
-        "mandataria": "Elenco mandatarie",
-        "mandante": "Elenco mandanti",
+        "mandataria": "Elenco mandatarie (separate da ,)",
+        "mandante": "Elenco mandanti (separate da ,)",
         "committente": "Nome committente",
         "indirizzo": "Indirizzo committente",
         "città": "Città",
         "provincia": "Provincia in formato (XX)",
-        "commessa": "Commessa del committente espressa in modo formale ed esaustiva",
-        "oggetto": "Dettaglio del lavoro commissionato espresso in modo formale ed esaustivo"
     }}
     """
     
@@ -900,31 +898,122 @@ def elabora_anagrafica_ai(audio_bytes):
     return json.loads(resp.choices[0].message.content)
 
 
+
 def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
     client = OpenAI(api_key=st.secrets["openai_key"])
     audio_file = io.BytesIO(audio_bytes)
     audio_file.name = "audio.wav"
     transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
     
-    #  1. Attività: Descrizione delle attività lavorative in corso nel cantiere, usa una terminologia tecnica (D.Lgs 81/08).
-    # 2. Coordinamento: Descrizione delle azioni di coordinamento e vigilanza svolte dall'ispettore.
-    # 3. Personale: Elenco delle figure professionali presenti, indicazioni sull'autorizzazione dei lavoratori di accedere al cantiere ed elenco delle eventuali ditte subappaltatrici presenti.
-    # 4. Verbale: Elenco delle prescrizioni, delle sospensioni o di altri verbali rilasciati durante il sopralluogo.
+    # DEFINIZIONE DEI PROMPT ESPANSI
+    if nome_campo == "commessa":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi la commessa in modo conciso ma esasustivo.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale. 
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve.
+        - Vietato l'uso di elenchi puntati o numerati.
+        - Vietato inserire prefissi come "Commessa:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        
+        """
+        
+    elif nome_campo == "oggetto":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi l'oggetto dell'incarico in modo conciso ma esasustivo.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale. 
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve.
+        - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE.
+        - Vietato l'uso di elenchi puntati o numerati.
+        - Vietato inserire prefissi come "Oggetto:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        
+        """
+        
+    elif nome_campo == "attività":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi le attività lavorative in corso nel cantiere in modo conciso ma esaustivo.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale. 
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve. 
+        - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE.
+        - Vietato l'uso di elenchi puntati o numerati.
+        - Vietato inserire prefissi come "Attività:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        
+        """
+        
+    elif nome_campo == "coordinamento":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi le attività di coordinamento e vigilanza in modo puramente discorsivo.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale. 
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve. 
+        - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE.
+        - Vietato l'uso di elenchi puntati o numerati.
+        - Vietato inserire prefissi come "Coordinamento:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        """
+        
+    elif nome_campo == "personale":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi l'analisi sul personale presente ed eventuali autorizzazioni in modo conciso ma esaustivo.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale. 
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve. 
+        - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE.
+        - Vietato inserire prefissi come "Personale:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        """
+        
+    elif nome_campo == "verbali":
+        istruzione = f"""
+        Trascrizione: {transcript.text}
+        
+        Riassumi le prescrizioni, le sospensioni e i verbali emessi in modo conciso.
+        
+        REGOLE:
+        - Usa un linguaggio tecnico, professionale e formale.
+        - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve. 
+        - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE. 
+        - Vietato inserire prefissi come "Verbali:" o etichette simili.
+        - Inizia direttamente a scrivere il contenuto.
+        """
+        
+    else:
+        istruzione = f"Trascrizione: {transcript.text}. Redigi un resoconto tecnico discorsivo."
 
-    prompt = f"""
-    Sei l'assistente di un ispettore sulla sicurezza nei cantieri e stai ascoltando il suo resoconto: "{transcript.text}".
-    Estrai le informazioni in modo formale e tecnico per il report di fine ispezione.
-
-    REGOLE
-    1. Se la trascrizione è assente o inutilizzabile, restituisci il campo vuoto.
-    2. Non scrivere frasi introduttive quali: "il resconto dell'ispettore...", "L'ispettore ha indicato..."
-    """
-    
+    # CHIAMATA API
     resp = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {
+                "role": "system", 
+                "content": "Sei un tecnico della sicurezza. Scrivi solo testo discorsivo narrativo. Vietato usare elenchi, trattini, etichette o prefissi all'inizio della risposta."
+            },
+            {"role": "user", "content": istruzione}
+        ]
     )
-    return resp.choices[0].message.content
+    
+    testo = resp.choices[0].message.content.strip()
+        
+    return testo
 
 
 
@@ -995,92 +1084,42 @@ def form_anagrafiche():
 
 
 @st.fragment
-def form_commessa():
-    with st.expander("📝 Commessa e Oggetto", expanded=True):
-                with st.container():
-
-                    # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
-                    salt = st.session_state.get("anagrafica_version", 0)
-
-                    # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
-                    campi_tecnici = [
-                        ("commessa", "Commessa", "rec_commessa", "last_commessa_hash"),
-                        ("oggetto", "Oggetto", "rec_oggetto", "last_oggetto_hash")
-                    ]
-
-                    for campo_id, label, key_rec, key_hash in campi_tecnici:
-                        with st.container():
-                            # Registratore
-                            audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
-                            
-                            # Logica di elaborazione
-                            if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
-                                current_hash = hash(str(audio_data['bytes']))
-                                if st.session_state.get(key_hash) != current_hash:
-                                    with st.spinner(f"Elaborazione {label}..."):
-                                        set_bg_color("#D0AD00")
-                                        
-                                        risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
-                                        st.session_state.anagrafica[campo_id] = risultato
-                                        st.session_state[key_hash] = current_hash
-                                        
-                                        # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
-                                        st.session_state.anagrafica_version += 1
-                                        
-                                        set_bg_color("#b3ff99")
-
-                            # Widget con chiave dinamica basata sul salt
-                            key_widget = f"widget_{campo_id}_{salt}"
-                            
-                            st.session_state.anagrafica[campo_id] = st.text_area(
-                                label, 
-                                value=st.session_state.anagrafica.get(campo_id, ""),
-                                key=key_widget
-                            )
-
-
-@st.fragment
 def widget_campo_tecnico(campo_id, label, key_rec, key_hash):
-    # Recuperiamo il salt per forzare il refresh
-    salt = st.session_state.get("anagrafica_version", 0)
-    
+    # Inizializza la versione specifica per questo campo se non esiste
+    if campo_id not in st.session_state.widget_version:
+        st.session_state.widget_version[campo_id] = 0
+
     # 1. Registratore
     audio_data = mic_recorder(
-        key=f"recorder_{campo_id}", # Chiave fissa, gestita internamente dal componente
+        key=f"recorder_{campo_id}", 
         start_prompt=f"🎤 {label}", 
-        stop_prompt="🛑 FERMA E ANALIZZA"
+        stop_prompt="🛑 FERMA REGISTRAZIONE E AVVIA ANALISI"
     )
     
-    # 2. Logica di elaborazione
+    # 2. Elaborazione AI
     if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
         current_hash = hash(str(audio_data['bytes']))
         if st.session_state.get(key_hash) != current_hash:
-            with st.spinner(f"Elaborazione {label}..."):
-                # Esegui la logica AI
+            with st.spinner("Elaborazione AI..."):
                 risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
                 st.session_state.anagrafica[campo_id] = risultato
                 st.session_state[key_hash] = current_hash
                 
-                # Incremento salt globale
-                st.session_state.anagrafica_version += 1
-                st.rerun() # Ricarica per riflettere il nuovo valore nel text_area
+                # --- TRUCCO: INCREMENTA LA VERSIONE ---
+                st.session_state.widget_version[campo_id] += 1
+                # Non serve rerun, il frammento si aggiorna da solo alla fine del blocco
 
-    # 3. Widget di testo
-    # La chiave include il salt per essere "nuova" ogni volta che il frammento si aggiorna
-    st.session_state.anagrafica[campo_id] = st.text_area(
+    # 3. Widget con chiave "versionata"
+    # Quando la versione cambia, Streamlit crea un NUOVO widget che legge il nuovo valore
+    ver = st.session_state.widget_version[campo_id]
+    
+    st.text_area(
         label, 
         value=st.session_state.anagrafica.get(campo_id, ""),
-        key=f"widget_{campo_id}_{salt}"
+        key=f"field_{campo_id}_{ver}", # La key cambia ogni volta che l'AI finisce
+        on_change=lambda: st.session_state.anagrafica.update({campo_id: st.session_state[f"field_{campo_id}_{ver}"]})
     )
 
-def form_cantiere():
-    with st.expander("🛠️ Attività e Personale", expanded=True):
-        # Ogni chiamata crea un frammento indipendente che si aggiorna solo se necessario
-        widget_campo_tecnico("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash")
-        widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
-        widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
-        widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
-        
 
 @st.fragment
 def form_allegati():
@@ -1127,6 +1166,10 @@ def inizializza_stato():
     if "anagrafica_version" not in st.session_state:
         st.session_state.anagrafica_version = 0
 
+    # 1. Aggiungi questo all'inizializzazione se manca
+    if "widget_version" not in st.session_state:
+        st.session_state.widget_version = {}
+
 
 
 # APP PRINCIPALE
@@ -1163,7 +1206,7 @@ set_bg_color(color, status_msg)
 def barra_salvataggio_superiore():
     # Creiamo un contenitore fisso in alto
     with st.container():
-        col1, col2 = st.columns([0.7, 0.3])
+        col1, col2 = st.columns([0.5, 0.5])
         
         with col1:
             # Pulsante visibile subito, stile primario
@@ -1459,9 +1502,17 @@ if utente_connesso:
 
         form_anagrafiche()
                         
-        form_commessa()
-
-        form_cantiere()
+        # --- COMMESSA ---
+        with st.expander("📝 Commessa e Oggetto", expanded=True):
+            widget_campo_tecnico("commessa", "Commessa", "rec_commessa", "last_commessa_hash")
+            widget_campo_tecnico("oggetto", "Oggetto", "rec_oggetto", "last_oggetto_hash")
+        
+        # --- CANTIERE ---
+        with st.expander("🛠️ Attività e Personale", expanded=True):
+            widget_campo_tecnico("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash")
+            widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
+            widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
+            widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
 
         form_allegati()
 
