@@ -529,7 +529,6 @@ if utente_connesso:
                     })
                     
                     st.session_state.last_audio_hash = audio_hash
-                    salva_stato_completo()
                     
                     # 4. Feedback finale
                     st.session_state.app_state = "done"
