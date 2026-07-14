@@ -306,23 +306,33 @@ def widget_analisi_immagine(idx, data):
 
 @st.fragment
 def render_expander_report(id_univoco, mostra_marker):
-    # 1. Recupero sicuro usando l'ID ricevuto come argomento
+    # 1. Recupero sicuro dell'oggetto data usando .get()
+    # Cerchiamo l'elemento che ha l'id corrispondente
     data = next((r for r in st.session_state.storico_report if r.get("id") == id_univoco), None)
     
+    # Se non lo troviamo, usciamo subito
     if data is None: 
         return 
     
-    # 2. Estrazione dati sicura
-    nome_file       = data.get("nome_file", "File")
-    report          = data.get("report", {})
-    punti_totali    = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
-    titolo          = report.get("riassunto_generale", f"Analisi {nome_file}")
-    
-    # Calcolo indice
-    idx = next((i for i, r in enumerate(st.session_state.storico_report) if r["id"] == id_univoco), None)
+    # 2. Calcolo sicuro dell'indice
+    # Usiamo .get("id") anche qui per evitare KeyError
+    idx = next((i for i, r in enumerate(st.session_state.storico_report) if r.get("id") == id_univoco), None)
     
     if idx is None: 
         return 
+
+    # 3. Estrazione dati (usa .get() per ogni campo)
+    nome_file       = data.get("nome_file", "File senza nome")
+    report          = data.get("report", {})
+    
+    # Proteggiamo anche la creazione di punti_totali
+    analisi_img = report.get("analisi_per_immagine", [])
+    punti_totali = []
+    if isinstance(analisi_img, list):
+        for img_data in analisi_img:
+            punti_totali.extend(img_data.get("punti_critici", []))
+            
+    titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
     
     with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{id_univoco}"):
         col1, col2 = st.columns([1, 1])
