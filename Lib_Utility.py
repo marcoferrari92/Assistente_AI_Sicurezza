@@ -1,5 +1,5 @@
 
-
+import time
 import random
 import streamlit as st
 from streamlit_local_storage import LocalStorage
@@ -28,7 +28,10 @@ def inizializza_stato():
     if "widget_version" not in st.session_state:
         st.session_state.widget_version = {}
 
-        
+    if "storico_report" not in st.session_state: 
+        st.session_state.storico_report = []
+
+
 
 def get_ls(chiave):
     # Usiamo un dizionario locale al modulo, NON nel session_state 

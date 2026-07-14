@@ -2,6 +2,7 @@
 import base64
 import time
 import uuid 
+import os
 import streamlit as st
 from PIL import Image
 from streamlit_mic_recorder import mic_recorder
@@ -225,10 +226,16 @@ def render_expander_report(id_univoco, data, mostra_marker):
     with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{id_univoco}"):
         col1, col2 = st.columns([1, 1])
         with col1:
-            # 2. IMMAGINE INTERATTIVA
-            img_da_disegnare = data.get("bytes")
-            if img_da_disegnare:
-                img_display = disegna_punti_critici(img_da_disegnare, punti_totali, abilita_marker=mostra_marker)
+            img_path = data.get("img_path")
+            
+            # --- MODIFICA QUI ---
+            if img_path and os.path.exists(img_path):
+                # Leggiamo i bytes dal file, non apriamo subito con Image
+                with open(img_path, "rb") as f:
+                    img_bytes = f.read()
+                
+                # Ora passiamo i bytes alla funzione, come facevi prima
+                img_display = disegna_punti_critici(img_bytes, punti_totali, abilita_marker=mostra_marker)
             else:
                 img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
 
@@ -267,12 +274,13 @@ def render_expander_report(id_univoco, data, mostra_marker):
             c1, c2, c3, c4 = st.columns(4)
 
             with c1:
-                # Usiamo un callback per essere sicuri che l'azione avvenga prima del rerun
-                def elimina_report():
+                # Definisci il bottone SENZA on_click
+                if st.button("🗑️ Elimina", key=f"del_{id_univoco}"):
+                    # Esegui la logica di eliminazione direttamente qui
                     st.session_state.storico_report = [r for r in st.session_state.storico_report if r["id"] != id_univoco]
-                    salva_stato_completo()
-
-                if st.button("🗑️ Elimina", key=f"del_{id_univoco}", on_click=elimina_report):
+                    
+                    # Ora il rerun qui funziona perché non siamo più nel callback, 
+                    # ma nel flusso principale del frammento.
                     st.rerun()
 
             if c4.button("🧹 Svuota Marker", key=f"clear_markers_{id_univoco}"):
@@ -430,18 +438,19 @@ if utente_connesso:
                     # 3. Esecuzione con il file ottimizzato
                     report, testo = analizza_sicurezza_cantiere(audio['bytes'], file_ottimizzato)
                     
-                    # Aggiornamento storico
-                    if "storico_report" not in st.session_state: 
-                        st.session_state.storico_report = []
-                    
-                    
-    
+                    id_univoco = str(uuid.uuid4())
+                    temp_path = f"/tmp/{id_univoco}.jpg"
+
+                    # Scriviamo l'immagine su disco
+                    with open(temp_path, "wb") as f:
+                        f.write(img_bytes_ottimizzati)
+
                     st.session_state.storico_report.append({
-                        "id": str(uuid.uuid4()),
+                        "id": id_univoco,
                         "nome_file": file.name, 
                         "report": report, 
                         "trascrizione": testo, 
-                        "bytes": img_bytes_ottimizzati, # Salva i bytes leggeri!
+                        "img_path": temp_path, # SALVI IL PERCORSO, NON I BYTES
                         "version": 1
                     })
                     
@@ -452,7 +461,7 @@ if utente_connesso:
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
                     time.sleep(1)
-                    #st.rerun()
+
 
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
