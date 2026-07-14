@@ -11,56 +11,13 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from Lib_Outlook import invia_report_via_email_graph
 from Lib_Image import get_img_bytes_optimized, disegna_punti_critici
 from Lib_AI import elabora_anagrafica_ai, elabora_campo_tecnico_ai, analizza_sicurezza_cantiere
-from Lib_Utility import login, salva_stato_completo, recupera_stato_completo, resetta_tutto_il_sistema
+from Lib_Utility import login, salva_stato_completo, recupera_stato_completo, resetta_tutto_il_sistema, inizializza_stato
 from Lib_Word import genera_report_finale
+from Lib_Style import set_global_styles, set_bg_color
 
     
 
-def set_global_styles():
-    st.markdown(
-        """
-        <style>
-        /* CSS per immagini standard e dentro expander */
-        [data-testid="stExpander"] img,
-        [data-testid="stImage"] img {
-            max-width: 100% !important;
-            height: auto !important;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        /* Forza il contenitore dell'immagine a rispettare la larghezza del padre */
-        [data-testid="stExpander"] [data-testid="stImage"],
-        [data-testid="stImage"] {
-            width: 100% !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
-
-def set_bg_color(color, status_text=None):
-    # CSS per cambiare lo sfondo e creare il banner fisso
-    banner_html = ""
-    if status_text:
-        banner_html = f"""
-        <div style="position: fixed; top: 0; left: 0; width: 100%; background-color: #333; 
-                    color: white; text-align: center; padding: 10px; z-index: 9999; font-weight: bold;">
-            {status_text}
-        </div>
-        """
-    
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{ background-color: {color} !important; }}
-        </style>
-        {banner_html}
-        """,
-        unsafe_allow_html=True
-    )
 
 
 
@@ -198,23 +155,7 @@ def form_allegati():
                     st.warning(f"⚠️ '{f.name}' non è formato di file inseribile nel report Word. Aggiungerò il nome all'elenco allegati ma il file dovrà essere allegato manualmente.")
 
 
-def inizializza_stato():
-    # 1. Inizializza anagrafica se non esiste
-    if "anagrafica" not in st.session_state:
-        st.session_state.anagrafica = {
-            "mandataria": "", "mandante": "", "committente": "", 
-            "indirizzo": "", "città": "", "provincia": "", 
-            "commessa": "", "oggetto": "", "attività": "", 
-            "coordinamento": "", "personale": "", "verbali": ""
-        }
-    
-    # 2. Inizializza le altre chiavi di supporto
-    if "anagrafica_version" not in st.session_state:
-        st.session_state.anagrafica_version = 0
 
-    # 1. Aggiungi questo all'inizializzazione se manca
-    if "widget_version" not in st.session_state:
-        st.session_state.widget_version = {}
 
 
 
@@ -228,7 +169,7 @@ utente_connesso = login()
 
 set_global_styles()
 
-# log_sidebar_debug_completo()
+
 
 if "app_state" not in st.session_state:
     status_msg = None
@@ -376,7 +317,7 @@ if utente_connesso:
                     # 4. Feedback finale
                     st.session_state.app_state = "done"
                     set_bg_color("#b3ff99")
-                    time.sleep(2)
+                    time.sleep(1)
                     #st.rerun()
 
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
@@ -463,9 +404,9 @@ if utente_connesso:
                                 
                                 # 2. Pulisci SOLO le chiavi associate all'indice rimosso
                                 # (Questo è opzionale ma pulito)
-                                keys_to_delete = [k for k in st.session_state.keys() if f"_{idx}" in k]
-                                for k in keys_to_delete:
-                                    del st.session_state[k]
+                                # keys_to_delete = [k for k in st.session_state.keys() if f"_{idx}" in k]
+                                # for k in keys_to_delete:
+                                #     del st.session_state[k]
                                     
                                 # 3. Salva e Ricarica
                                 salva_stato_completo()

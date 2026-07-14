@@ -9,6 +9,27 @@ from streamlit_local_storage import LocalStorage
 # Metti questa istanza fuori, come variabile globale del modulo
 _storage_cache = {}
 
+
+def inizializza_stato():
+    # 1. Inizializza anagrafica se non esiste
+    if "anagrafica" not in st.session_state:
+        st.session_state.anagrafica = {
+            "mandataria": "", "mandante": "", "committente": "", 
+            "indirizzo": "", "città": "", "provincia": "", 
+            "commessa": "", "oggetto": "", "attività": "", 
+            "coordinamento": "", "personale": "", "verbali": ""
+        }
+    
+    # 2. Inizializza le altre chiavi di supporto
+    if "anagrafica_version" not in st.session_state:
+        st.session_state.anagrafica_version = 0
+
+    # 1. Aggiungi questo all'inizializzazione se manca
+    if "widget_version" not in st.session_state:
+        st.session_state.widget_version = {}
+
+        
+
 def get_ls(chiave):
     # Usiamo un dizionario locale al modulo, NON nel session_state 
     # per evitare che il componente venga ricreato durante i rerun
