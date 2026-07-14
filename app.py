@@ -305,17 +305,23 @@ def widget_analisi_immagine(idx, data):
 
 
 @st.fragment
-def render_expander_report(id_univoco, data, mostra_marker):
-    # Recuperiamo l'indice reale basandoci sull'ID univoco
+def render_expander_report(id_univoco, mostra_marker):
+    # Recupero sicuro
+    data = next((r for r in st.session_state.storico_report if r["id"] == id_univoco), None)
+    if data is None: 
+        return 
+    
+    # Estrazione (usa data che hai già recuperato)
+    nome_file       = data.get("nome_file", "File senza nome")
+    report          = data.get("report", {})
+    punti_totali    = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
+    titolo          = report.get("riassunto_generale", f"Analisi {nome_file}")
+    
+    # Calcolo indice
     idx = next((i for i, r in enumerate(st.session_state.storico_report) if r["id"] == id_univoco), None)
     
     if idx is None: 
         return 
-
-    nome_file       = data["nome_file"]
-    report          = data["report"]
-    punti_totali    = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
-    titolo          = report.get("riassunto_generale", f"Analisi {nome_file}")
     
     with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{id_univoco}"):
         col1, col2 = st.columns([1, 1])
@@ -563,11 +569,11 @@ if utente_connesso:
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
         
+  
         if st.session_state.storico_report:
-            # Non serve più creare una copia della lista, itera direttamente
             for data in st.session_state.storico_report:
-                # Passiamo l'ID unico invece dell'indice idx
-                render_expander_report(data["id"], data, mostra_marker)
+                # PASSAGGIO CRITICO: passiamo solo l'ID
+                render_expander_report(data["id"], mostra_marker)
                 
     with tab3:
 
