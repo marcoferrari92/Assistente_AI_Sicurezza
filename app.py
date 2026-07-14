@@ -1040,56 +1040,47 @@ def form_commessa():
 
 
 @st.fragment
-def form_cantiere():
-        
-        with st.expander("🛠️ Attività e Personale", expanded=True):
+def widget_campo_tecnico(campo_id, label, key_rec, key_hash):
+    # Recuperiamo il salt per forzare il refresh
+    salt = st.session_state.get("anagrafica_version", 0)
     
-            with st.container():
+    # 1. Registratore
+    audio_data = mic_recorder(
+        key=f"recorder_{campo_id}", # Chiave fissa, gestita internamente dal componente
+        start_prompt=f"🎤 {label}", 
+        stop_prompt="🛑 FERMA E ANALIZZA"
+    )
+    
+    # 2. Logica di elaborazione
+    if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
+        current_hash = hash(str(audio_data['bytes']))
+        if st.session_state.get(key_hash) != current_hash:
+            with st.spinner(f"Elaborazione {label}..."):
+                # Esegui la logica AI
+                risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
+                st.session_state.anagrafica[campo_id] = risultato
+                st.session_state[key_hash] = current_hash
+                
+                # Incremento salt globale
+                st.session_state.anagrafica_version += 1
+                st.rerun() # Ricarica per riflettere il nuovo valore nel text_area
 
-                # Recuperiamo il salt corrente (se non esiste, partiamo da 0)
-                salt = st.session_state.get("anagrafica_version", 0)
+    # 3. Widget di testo
+    # La chiave include il salt per essere "nuova" ogni volta che il frammento si aggiorna
+    st.session_state.anagrafica[campo_id] = st.text_area(
+        label, 
+        value=st.session_state.anagrafica.get(campo_id, ""),
+        key=f"widget_{campo_id}_{salt}"
+    )
 
-                # Lista di tuple per rendere il codice più compatto e DRY (Don't Repeat Yourself)
-                campi_tecnici = [
-                    ("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash"),
-                    ("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash"),
-                    ("personale", "Personale Presente", "rec_personale", "last_personale_hash"),
-                    ("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
-                ]
-
-                for campo_id, label, key_rec, key_hash in campi_tecnici:
-                    with st.container():
-                        # Registratore
-                        audio_data = mic_recorder(key=key_rec, start_prompt=f"🎤 {label}", stop_prompt="🛑 FERMA E ANALIZZA")
-                        
-                        # Logica di elaborazione
-                        if audio_data and isinstance(audio_data, dict) and 'bytes' in audio_data:
-                            current_hash = hash(str(audio_data['bytes']))
-                            if st.session_state.get(key_hash) != current_hash:
-                                with st.spinner(f"Elaborazione {label}..."):
-                                    set_bg_color("#D0AD00")
-                                    
-                                    risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
-                                    st.session_state.anagrafica[campo_id] = risultato
-                                    st.session_state[key_hash] = current_hash
-                                    
-                                    # INCREMENTIAMO IL SALT per forzare il refresh di TUTTI i widget
-                                    st.session_state.anagrafica_version += 1
-                                    
-                                    #salva_stato_completo()
-                                    set_bg_color("#b3ff99")
-                                    time.sleep(1)
-                                    #st.rerun()
-
-                        # Widget con chiave dinamica basata sul salt
-                        key_widget = f"widget_{campo_id}_{salt}"
-                        
-                        st.session_state.anagrafica[campo_id] = st.text_area(
-                            label, 
-                            value=st.session_state.anagrafica.get(campo_id, ""),
-                            key=key_widget
-                            #on_change=salva_stato_completo
-                        )
+def form_cantiere():
+    with st.expander("🛠️ Attività e Personale", expanded=True):
+        # Ogni chiamata crea un frammento indipendente che si aggiorna solo se necessario
+        widget_campo_tecnico("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash")
+        widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
+        widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
+        widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
+        
 
 @st.fragment
 def form_allegati():
