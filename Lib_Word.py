@@ -193,13 +193,20 @@ def genera_report_finale(storico, uploaded_files=None):
             row_c = table.add_row()
             
             # --- DISEGNO IMMAGINE CON TAG ---
-            img_taggata = disegna_punti_critici(data["bytes"], punti_totali, abilita_marker=True)
-            img_stream = io.BytesIO()
-            img_taggata.save(img_stream, format='JPEG', quality=95)
-            img_stream.seek(0)
-            
-            # Inserimento immagine
-            row_c.cells[0].add_paragraph().add_run().add_picture(img_stream, width=Inches(2.0))
+            img_path = data.get("img_path")
+            if img_path and os.path.exists(img_path):
+                with open(img_path, "rb") as f:
+                    image_bytes = f.read()
+                
+                img_taggata = disegna_punti_critici(image_bytes, punti_totali, abilita_marker=True)
+                img_stream = io.BytesIO()
+                img_taggata.save(img_stream, format='JPEG', quality=95)
+                img_stream.seek(0)
+                
+                # Inserimento immagine
+                row_c.cells[0].add_paragraph().add_run().add_picture(img_stream, width=Inches(2.0))
+            else:
+                row_c.cells[0].add_paragraph("Immagine non trovata")
 
             # Testo verbale
             testo = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
