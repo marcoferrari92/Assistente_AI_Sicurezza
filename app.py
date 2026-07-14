@@ -154,7 +154,7 @@ def form_anagrafiche():
 
 @st.fragment
 def widget_campo_tecnico(campo_id, label, key_rec, key_hash):
-    # Inizializza la versione specifica per questo campo se non esiste
+    # Inizializza la versione
     if campo_id not in st.session_state.widget_version:
         st.session_state.widget_version[campo_id] = 0
 
@@ -173,20 +173,22 @@ def widget_campo_tecnico(campo_id, label, key_rec, key_hash):
                 risultato = elabora_campo_tecnico_ai(audio_data['bytes'], campo_id)
                 st.session_state.anagrafica[campo_id] = risultato
                 st.session_state[key_hash] = current_hash
-                
-                # --- TRUCCO: INCREMENTA LA VERSIONE ---
                 st.session_state.widget_version[campo_id] += 1
-                # Non serve rerun, il frammento si aggiorna da solo alla fine del blocco
 
     # 3. Widget con chiave "versionata"
-    # Quando la versione cambia, Streamlit crea un NUOVO widget che legge il nuovo valore
     ver = st.session_state.widget_version[campo_id]
+    key_widget = f"field_{campo_id}_{ver}"
+    
+    # Funzione sicura per l'update
+    def safe_update():
+        if key_widget in st.session_state:
+            st.session_state.anagrafica[campo_id] = st.session_state[key_widget]
     
     st.text_area(
         label, 
         value=st.session_state.anagrafica.get(campo_id, ""),
-        key=f"field_{campo_id}_{ver}", # La key cambia ogni volta che l'AI finisce
-        on_change=lambda: st.session_state.anagrafica.update({campo_id: st.session_state[f"field_{campo_id}_{ver}"]})
+        key=key_widget, 
+        on_change=safe_update
     )
 
 
