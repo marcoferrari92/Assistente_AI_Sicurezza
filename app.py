@@ -306,29 +306,19 @@ def widget_analisi_immagine(idx, data):
 
 @st.fragment
 def render_expander_report(id_univoco, mostra_marker):
-    
-    # 1. Filtra lo storico per eliminare elementi senza ID (pulisce lo stato)
-    if any("id" not in r for r in st.session_state.storico_report):
-        st.session_state.storico_report = [r for r in st.session_state.storico_report if "id" in r]
-    
-    # 2. Recupero sicuro
+    # 1. Recupero sicuro del record specifico
     data = next((r for r in st.session_state.storico_report if r.get("id") == id_univoco), None)
+    
+    # Se il record è sparito (es. eliminato), esci subito
     if data is None: 
         return
     
-    # 2. Calcolo sicuro dell'indice
-    # Usiamo .get("id") anche qui per evitare KeyError
-    idx = next((i for i, r in enumerate(st.session_state.storico_report) if r.get("id") == id_univoco), None)
-    
-    if idx is None: 
-        return 
-
-    # 3. Estrazione dati (usa .get() per ogni campo)
+    # 2. Estrazione dati sicura
     nome_file       = data.get("nome_file", "File senza nome")
     report          = data.get("report", {})
+    analisi_img     = report.get("analisi_per_immagine", [])
     
-    # Proteggiamo anche la creazione di punti_totali
-    analisi_img = report.get("analisi_per_immagine", [])
+    # Costruisci punti_totali in sicurezza
     punti_totali = []
     if isinstance(analisi_img, list):
         for img_data in analisi_img:
@@ -341,13 +331,9 @@ def render_expander_report(id_univoco, mostra_marker):
         with col1:
             img_path = data.get("img_path")
             
-            # --- MODIFICA QUI ---
             if img_path and os.path.exists(img_path):
-                # Leggiamo i bytes dal file, non apriamo subito con Image
                 with open(img_path, "rb") as f:
                     img_bytes = f.read()
-                
-                # Ora passiamo i bytes alla funzione, come facevi prima
                 img_display = disegna_punti_critici(img_bytes, punti_totali, abilita_marker=mostra_marker)
             else:
                 img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
@@ -358,19 +344,21 @@ def render_expander_report(id_univoco, mostra_marker):
                 width=350
             )
 
-            # 3. Logica per aggiungere il punto se l'utente clicca
+            # Logica Fissa punto (Aggiorna il record tramite ID)
             if click_data is not None:
                 if st.button("📍 Fissa punto qui", key=f"fix_{id_univoco}"):
                     w, h = img_display.size
                     x_norm = (click_data['x'] / w) * 1000
                     y_norm = (click_data['y'] / h) * 1000
                     
+                    # Trova il punto nell'oggetto 'data' locale
                     punto_vuoto_trovato = False
-                    for p in report['analisi_per_immagine'][0]['punti_critici']:
-                        if p.get('coordinate', {}).get('x') is None:
-                            p['coordinate'] = {'x': x_norm, 'y': y_norm}
-                            punto_vuoto_trovato = True
-                            break
+                    if report.get('analisi_per_immagine'):
+                        for p in report['analisi_per_immagine'][0].get('punti_critici', []):
+                            if p.get('coordinate', {}).get('x') is None:
+                                p['coordinate'] = {'x': x_norm, 'y': y_norm}
+                                punto_vuoto_trovato = True
+                                break
                     
                     if not punto_vuoto_trovato:
                         report['analisi_per_immagine'][0]['punti_critici'].append({
@@ -380,33 +368,39 @@ def render_expander_report(id_univoco, mostra_marker):
                             "oggetto": "Nota manuale"
                         })
                     
-                    st.session_state.storico_report[idx]['report'] = report
+                    # Aggiorna lo stato globale
+                    st.session_state.storico_report = [
+                        (r if r.get("id") != id_univoco else {**r, "report": report}) 
+                        for r in st.session_state.storico_report
+                    ]
                     st.rerun()
 
-            # 1. PULSANTI DI SISTEMA
+            # Pulsanti di sistema
             c1, c2, c3, c4 = st.columns(4)
-
             with c1:
-                # Definisci il bottone SENZA on_click
                 if st.button("🗑️ Elimina", key=f"del_{id_univoco}"):
-                    # Sostituisci la riga 390 con questa:
-                    st.session_state.storico_report = [r for r in st.session_state.storico_report if r.get("id") and r.get("id") != id_univoco]
+                    st.session_state.storico_report = [r for r in st.session_state.storico_report if r.get("id") != id_univoco]
                     st.rerun()
 
             if c4.button("🧹 Svuota Marker", key=f"clear_markers_{id_univoco}"):
                 for img_data in report.get("analisi_per_immagine", []):
-                    for p in img_data['punti_critici']:
+                    for p in img_data.get('punti_critici', []):
                         p['coordinate'] = {'x': None, 'y': None} 
-                st.session_state.storico_report[idx]['report'] = report
+                # Aggiorna lo stato globale
+                st.session_state.storico_report = [
+                    (r if r.get("id") != id_univoco else {**r, "report": report}) 
+                    for r in st.session_state.storico_report
+                ]
                 st.rerun()
 
         with col2:
             st.markdown("#### Analisi")
-            widget_analisi_immagine(idx, data)
+            # Passiamo l'id univoco invece dell'indice idx
+            widget_analisi_immagine(id_univoco, data)
             
             st.markdown("#### ⚠️ Punti critici rilevati")
             for idx_p, p in enumerate(punti_totali):
-                widget_punto_critico(idx, idx_p, p, report)
+                widget_punto_critico(id_univoco, idx_p, p, report)
 
 
 # APP PRINCIPALE
@@ -563,14 +557,16 @@ if utente_connesso:
                     with open(temp_path, "wb") as f:
                         f.write(img_bytes_ottimizzati)
 
-                    st.session_state.storico_report.append({
-                        "id": id_univoco,
+                    # Quando aggiungi al report (Tab 1), fai così:
+                    nuovo_record = {
+                        "id": str(uuid.uuid4()),  # Forza l'ID qui
                         "nome_file": file.name, 
                         "report": report, 
                         "trascrizione": testo, 
-                        "img_path": temp_path, # SALVI IL PERCORSO, NON I BYTES
+                        "img_path": temp_path,
                         "version": 1
-                    })
+                    }
+                    st.session_state.storico_report.append(nuovo_record)
                     
                     st.session_state.last_audio_hash = audio_hash
                     
