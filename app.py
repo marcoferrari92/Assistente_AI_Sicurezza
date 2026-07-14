@@ -37,23 +37,27 @@ def get_ls(chiave):
         
     return _storage_cache[chiave]
 
-# 2. Funzione di reset
 def resetta_tutto_il_sistema():
-    st.session_state.anagrafica = {}
+    # 1. Definisci le chiavi base necessarie per non far crashare l'app
+    chiavi_base = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
+                   "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
+    
+    # 2. Resetta i dati
+    st.session_state.anagrafica = {k: "" for k in chiavi_base} # Ricrea il dizionario con valori vuoti
     st.session_state.storico_report = []
     st.session_state.edits = {}
     st.session_state.user_data = None
     
+    # 3. Logica di cancellazione localStorage esistente
     master = get_ls("MASTER_POINTER")
     chiave = master.getItem("chiave_valida")
-    
     if chiave:
         try:
             get_ls(chiave).deleteItem("imprendo_dati")
         except: pass
         master.deleteItem("chiave_valida")
             
-    st.session_state.ls_registry = {} # Pulisce il registro
+    st.session_state.ls_registry = {}
     st.toast("Sistema resettato!", icon="🔄")
 
 # 3. Salvataggio
@@ -1118,23 +1122,24 @@ def form_allegati():
                     st.warning(f"⚠️ '{f.name}' non è formato di file inseribile nel report Word. Aggiungerò il nome all'elenco allegati ma il file dovrà essere allegato manualmente.")
 
 
+def inizializza_stato():
+    # 1. Inizializza anagrafica se non esiste
+    if "anagrafica" not in st.session_state:
+        st.session_state.anagrafica = {
+            "mandataria": "", "mandante": "", "committente": "", 
+            "indirizzo": "", "città": "", "provincia": "", 
+            "commessa": "", "oggetto": "", "attività": "", 
+            "coordinamento": "", "personale": "", "verbali": ""
+        }
+    
+    # 2. Inizializza le altre chiavi di supporto
+    if "anagrafica_version" not in st.session_state:
+        st.session_state.anagrafica_version = 0
+
+
+
 # APP PRINCIPALE
-
-
-# --- INIZIALIZZAZIONE FORZATA (DEVE ESSERE IN CIMA) ---
-# if "anagrafica" not in st.session_state:
-#     st.session_state.anagrafica = {}
-#     recupera_stato_completo() 
-
-# Assicuriamoci che esistano le chiavi base per evitare KeyError
-chiavi_base = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
-               "commessa", "oggetto", "attività", "coordinamento", "personale", "verbali"]
-for k in chiavi_base:
-    if k not in st.session_state.anagrafica:
-        st.session_state.anagrafica[k] = ""
-
-if "anagrafica_version" not in st.session_state:
-    st.session_state.anagrafica_version = 0
+inizializza_stato()
 
 
 # --- ORA CHIAMA IL LOGIN ---
