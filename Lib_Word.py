@@ -1,6 +1,7 @@
 
 
 import io
+import os
 import streamlit as st
 from docx import Document
 from docx.oxml import OxmlElement
@@ -148,6 +149,14 @@ def genera_report_finale(storico, uploaded_files=None):
     
         # 3. Ciclo sullo storico
         for idx, data in enumerate(storico):
+
+            img_path = data.get("img_path")
+            if img_path and os.path.exists(img_path):
+                with open(img_path, "rb") as f:
+                    image_bytes = f.read()
+            else:
+                image_bytes = None
+
             # Recupera i punti aggiornati (inclusi quelli manipolati dall'utente)
             punti_totali = [p for img_data in data["report"].get("analisi_per_immagine", []) for p in img_data['punti_critici']]
             

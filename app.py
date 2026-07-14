@@ -276,11 +276,7 @@ def render_expander_report(id_univoco, data, mostra_marker):
             with c1:
                 # Definisci il bottone SENZA on_click
                 if st.button("🗑️ Elimina", key=f"del_{id_univoco}"):
-                    # Esegui la logica di eliminazione direttamente qui
                     st.session_state.storico_report = [r for r in st.session_state.storico_report if r["id"] != id_univoco]
-                    
-                    # Ora il rerun qui funziona perché non siamo più nel callback, 
-                    # ma nel flusso principale del frammento.
                     st.rerun()
 
             if c4.button("🧹 Svuota Marker", key=f"clear_markers_{id_univoco}"):
