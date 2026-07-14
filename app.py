@@ -156,7 +156,35 @@ def form_allegati():
 
 
 
-
+@st.fragment
+def widget_punto_critico(idx, idx_p, p, report):
+    """Frammento per gestire il singolo punto critico."""
+    id_univoco = p.get('id', f"x{p.get('coordinate',{}).get('x')}_y{p.get('coordinate',{}).get('y')}_{idx_p}")
+    key_punto = f"edit_punto_{idx}_{id_univoco}"
+    
+    # Inizializzazione nello stato
+    if key_punto not in st.session_state.edits:
+        st.session_state.edits[key_punto] = p.get('commento', '')
+    
+    c1, c2 = st.columns([0.9, 0.1])
+    
+    with c1:
+        # Quando l'utente scrive, si aggiorna solo lo stato
+        st.session_state.edits[key_punto] = st.text_area(
+            f"{idx_p + 1}. {p.get('elemento', 'Punto')} ({p.get('oggetto', 'Nota')})",
+            value=st.session_state.edits[key_punto],
+            height=130,
+            key=f"area_{key_punto}"
+        )
+    
+    with c2:
+        if st.button("❌", key=f"del_punto_{idx}_{id_univoco}"):
+            # Rimozione dal report
+            for img_data in report.get("analisi_per_immagine", []):
+                if p in img_data['punti_critici']:
+                    img_data['punti_critici'].remove(p)
+                    st.session_state.storico_report[idx]['report'] = report
+                    st.rerun() # Il rerun qui ricarica SOLO questo frammento!
 
 
 
@@ -453,38 +481,8 @@ if utente_connesso:
                         
                         # Usiamo un contatore sicuro
                         for idx_p, p in enumerate(punti_totali):
-                            # Creiamo un ID unico che non dipende dal numero di elementi nella lista
-                            # Se il punto ha un 'id' nel dizionario, usa quello. Altrimenti usa le coordinate.
-                            id_univoco = p.get('id', f"x{p.get('coordinate',{}).get('x')}_y{p.get('coordinate',{}).get('y')}_{idx_p}")
-                            
-                            c_punto1, c_punto2 = st.columns([0.9, 0.1])
-                            
-                            with c_punto1:
-                                key_punto = f"edit_punto_{idx}_{id_univoco}"
-                                if key_punto not in st.session_state.edits:
-                                    st.session_state.edits[key_punto] = p.get('commento', '')
-                                
-                                st.session_state.edits[key_punto] = st.text_area(
-                                    f"{idx_p + 1}. {p.get('elemento', 'Punto')} ({p.get('oggetto', 'Nota')})",
-                                    value=st.session_state.edits[key_punto],
-                                    height=130,
-                                    key=key_punto
-                                    #on_change=salva_stato_completo
-                                )
-                            
-                            with c_punto2:
-                                # Il bottone usa la stessa chiave univoca, non i
-                                if st.button("❌", key=f"del_punto_{idx}_{id_univoco}"):
-                                    # Rimuovi il punto e forza il rerun
-                                    for img_data in report.get("analisi_per_immagine", []):
-                                        if p in img_data['punti_critici']:
-                                            img_data['punti_critici'].remove(p)
-                                            st.session_state.storico_report[idx]['report'] = report
-                                            salva_stato_completo()
-                                            st.rerun()
+                            widget_punto_critico(idx, idx_p, p, report)
 
-        else:
-            st.info("Esegui un'analisi per vedere i risultati qui.")
 
     
     with tab3:
