@@ -1113,9 +1113,9 @@ def form_allegati():
                         "bytes": bytes_ottimizzati,
                         "type": f.type
                     })
-                    st.success(f"✅ '{f.name}' ottimizzato.")
+                    st.success(f"✅ '{f.name}' pronto a essere inserito nel report finale.")
                 else:
-                    st.warning(f"⚠️ '{f.name}' non è un'immagine.")
+                    st.warning(f"⚠️ '{f.name}' non è formato di file inseribile nel report Word. Aggiungerò il nome all'elenco allegati ma il file dovrà essere allegato manualmente.")
 
 
 # APP PRINCIPALE
@@ -1388,39 +1388,7 @@ if utente_connesso:
                             #salva_stato_completo()
                             st.rerun()
 
-                        # --- REGISTRATORE CONTESTUALE ---
-                        # if st.session_state.get("active_recorder") and st.session_state.active_recorder["idx"] == idx:
-                        #     st.info(f"🎤 Registra per {st.session_state.active_recorder['mode'].upper()}...")
-                        #     audio_attivo = mic_recorder(start_prompt="⏺️ AVVIA", stop_prompt="⏹️ ANALIZZA", key=f"rec_{idx}")
-                            
-                        #     if audio_attivo:
-                        #         with st.spinner("Analisi in corso..."):
-                        #             class MockFile:
-                        #                 def __init__(self, name, data): self.name = name; self._data = data
-                        #                 def getvalue(self): return self._data
-                                    
-                        #             file_mock = MockFile(data["nome_file"], data["bytes"])
-                        #             mode = st.session_state.active_recorder["mode"]
-                                    
-                        #             if mode == "rework":
-                        #                 report, testo = analizza_sicurezza_cantiere(audio_attivo['bytes'], file_mock)
-                        #             else:
-                        #                 verbale_attuale = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
-                        #                 report, testo = integra_sicurezza_cantiere(audio_attivo['bytes'], file_mock, verbale_attuale)
-                                    
-                        #             new_v = st.session_state.get("version_counter", 0) + 1
-                        #             st.session_state.version_counter = new_v
-                        #             st.session_state.storico_report[idx].update({"report": report, "trascrizione": testo, "version": new_v})
-                        #             #salva_stato_completo()
-                                    
-                        #             # Reset Edits
-                        #             for k in [k for k in st.session_state.edits.keys() if f"_{idx}" in k]: del st.session_state.edits[k]
-                        #             st.session_state.edits[f"edit_testo_{idx}"] = testo
-                        #             #salva_stato_completo()
-                                    
-                        #             del st.session_state.active_recorder
-                        #             st.rerun()
-                    
+
                     with col2:
                         st.markdown("#### Analisi")
                         
@@ -1494,23 +1462,6 @@ if utente_connesso:
         form_cantiere()
 
         form_allegati()
-
-        # with st.expander("📎 Allegati"):
-        #     uploaded_files = st.file_uploader(
-        #         "Carica allegati", 
-        #         accept_multiple_files=True, 
-        #         key="file_uploader_allegati"
-        #     )
-            
-        #     if uploaded_files:
-        #         formati_immagini = ['image/jpeg', 'image/png', 'image/jpg', 'image/jpeg']
-                
-        #         for f in uploaded_files:
-        #             if f.type not in formati_immagini:
-        #                 st.warning(f"⚠️ '{f.name}' è un file con formato non gestibile. **NON POSSO inserire questo tipo di file in un documento Word.** Verrà comunque elencato nel report come voce testuale, ma dovrai allegare il file fisicamente a parte.")
-        #             else:
-        #                 st.success(f"✅ '{f.name}' verrà inserito graficamente nel report.")
-
 
 
         # --- ESPORTAZIONE ---
