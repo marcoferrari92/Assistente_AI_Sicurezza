@@ -13,10 +13,52 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from Lib_Outlook import invia_report_via_email_graph
 from Lib_Image import get_img_bytes_optimized, disegna_punti_critici
 from Lib_AI import elabora_anagrafica_ai, elabora_campo_tecnico_ai, analizza_sicurezza_cantiere
-from Lib_Utility import login, resetta_tutto_il_sistema, inizializza_stato, salva_stato_completo
+from Lib_Utility import login, inizializza_stato, salva_stato_completo
 from Lib_Word import genera_report_finale
 from Lib_Style import set_global_styles, set_bg_color
 
+
+def resetta_tutto_il_sistema():
+    # 1. Pulisce la memoria immediata (Session State)
+    keys_to_keep = ["ls_master", "debug_log"] # Manteniamo solo il log e il master pointer
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep:
+            del st.session_state[key]
+            
+    # 2. Re-inizializza le strutture base
+    st.session_state.anagrafica = {
+        "mandataria": "", "mandante": "", "committente": "", "indirizzo": "", 
+        "città": "", "provincia": "", "commessa": "", "oggetto": "", 
+        "attività": "", "coordinamento": "", "personale": "", "verbali": ""
+    }
+    st.session_state.storico_report = []
+    st.session_state.edits = {}
+    st.session_state.widget_version = {}
+    st.session_state.anagrafica_version = 0
+
+    # 3. Pulisce il LocalStorage (Fondamentale)
+    try:
+        ls = st.session_state.ls_master
+        chiave_reale = ls.getItem("chiave_valida")
+        if chiave_reale:
+            # Eliminiamo i dati salvati
+            localS = LocalStorage(key=chiave_reale)
+            localS.setItem("imprendo_dati", None) # Sovrascrive con nulla
+            # Eliminiamo il puntatore master
+            ls.setItem("chiave_valida", None)
+            
+        # 4. Pulisce la cartella /tmp (le foto caricate)
+        import glob
+        for f in glob.glob("/tmp/allegato_*.jpg") + glob.glob("/tmp/*.jpg"):
+            try:
+                os.remove(f)
+            except:
+                pass
+                
+        st.session_state.debug_log = "SISTEMA RESETTATO CON SUCCESSO."
+        
+    except Exception as e:
+        st.session_state.debug_log = f"ERRORE RESET: {str(e)}"
 
 
 def recupera_stato_completo():
