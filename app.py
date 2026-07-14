@@ -1174,7 +1174,7 @@ def barra_salvataggio_superiore():
             
         with col2:
             # Pulsante visibile subito, stile primario
-            if st.button("💾 SALVA DATI", type="primary", use_container_width=True):
+            if st.button("💾 SALVA BOZZA", type="primary", use_container_width=True):
                 with st.spinner("Salvataggio in corso..."):
                     # Qui forziamo l'aggiornamento di session_state dai widget
                     # (Streamlit lo fa automaticamente se usi le key, ma è un buon momento per forzare)
