@@ -1119,12 +1119,12 @@ def form_allegati():
 
 
 # APP PRINCIPALE
-recupera_stato_completo() 
+
 
 # --- INIZIALIZZAZIONE FORZATA (DEVE ESSERE IN CIMA) ---
-if "anagrafica" not in st.session_state:
-    st.session_state.anagrafica = {}
-    recupera_stato_completo() 
+# if "anagrafica" not in st.session_state:
+#     st.session_state.anagrafica = {}
+#     recupera_stato_completo() 
 
 # Assicuriamoci che esistano le chiavi base per evitare KeyError
 chiavi_base = ["mandataria", "mandante", "committente", "indirizzo", "città", "provincia", 
@@ -1170,11 +1170,17 @@ def barra_salvataggio_superiore():
         col1, col2 = st.columns([0.7, 0.3])
         
         with col1:
-            st.write("### 📝 Dati di Cantiere")
+            # Pulsante visibile subito, stile primario
+            if st.button("🗄️ CARICA ULTIMA BOZZA SALVATA", type="primary", use_container_width=True):
+                with st.spinner("Caricamento in corso..."):
+                    # Qui forziamo l'aggiornamento di session_state dai widget
+                    # (Streamlit lo fa automaticamente se usi le key, ma è un buon momento per forzare)
+                    recupera_stato_completo() 
+                    st.toast("Caricato correttamente!", icon="✅")
             
         with col2:
             # Pulsante visibile subito, stile primario
-            if st.button("💾 SALVA BOZZA", type="primary", use_container_width=True):
+            if st.button("💾 SALVA BOZZA ATTUALE", type="primary", use_container_width=True):
                 with st.spinner("Salvataggio in corso..."):
                     # Qui forziamo l'aggiornamento di session_state dai widget
                     # (Streamlit lo fa automaticamente se usi le key, ma è un buon momento per forzare)
