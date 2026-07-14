@@ -253,10 +253,11 @@ def form_allegati():
 
 
 @st.fragment
-def widget_punto_critico(idx, idx_p, p, report):
+
+def widget_punto_critico(id_univoco, idx_p, p, report):
     """Frammento per gestire il singolo punto critico."""
-    id_univoco = p.get('id', f"x{p.get('coordinate',{}).get('x')}_y{p.get('coordinate',{}).get('y')}_{idx_p}")
-    key_punto = f"edit_punto_{idx}_{id_univoco}"
+    id_punto_univoco = p.get('id', f"x{p.get('coordinate',{}).get('x')}_y{p.get('coordinate',{}).get('y')}_{idx_p}")
+    key_punto = f"edit_punto_{id_univoco}_{id_punto_univoco}"
     
     # Inizializzazione nello stato
     if key_punto not in st.session_state.edits:
@@ -265,7 +266,6 @@ def widget_punto_critico(idx, idx_p, p, report):
     c1, c2 = st.columns([0.9, 0.1])
     
     with c1:
-        # Quando l'utente scrive, si aggiorna solo lo stato
         st.session_state.edits[key_punto] = st.text_area(
             f"{idx_p + 1}. {p.get('elemento', 'Punto')} ({p.get('oggetto', 'Nota')})",
             value=st.session_state.edits[key_punto],
@@ -274,13 +274,19 @@ def widget_punto_critico(idx, idx_p, p, report):
         )
     
     with c2:
-        if st.button("❌", key=f"del_punto_{idx}_{id_univoco}"):
-            # Rimozione dal report
+        if st.button("❌", key=f"del_punto_{id_punto_univoco}"):
+            # 1. Rimuovi il punto dal report locale
             for img_data in report.get("analisi_per_immagine", []):
-                if p in img_data['punti_critici']:
+                if p in img_data.get('punti_critici', []):
                     img_data['punti_critici'].remove(p)
-                    st.session_state.storico_report[idx]['report'] = report
-                    st.rerun() # Il rerun qui ricarica SOLO questo frammento!
+            
+            # 2. Aggiorna lo stato globale cercando per ID e non per indice
+            for r in st.session_state.storico_report:
+                if r.get("id") == id_univoco:
+                    r["report"] = report
+                    break # Trovato e aggiornato
+            
+            st.rerun()
 
 
 @st.fragment
@@ -400,6 +406,7 @@ def render_expander_report(id_univoco, mostra_marker):
             
             st.markdown("#### ⚠️ Punti critici rilevati")
             for idx_p, p in enumerate(punti_totali):
+                # Passa id_univoco (la stringa) al posto di idx
                 widget_punto_critico(id_univoco, idx_p, p, report)
 
 
