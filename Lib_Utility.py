@@ -1,6 +1,8 @@
 
 import time
 import random
+import json
+import os
 import streamlit as st
 from streamlit_local_storage import LocalStorage
 
@@ -30,6 +32,9 @@ def inizializza_stato():
 
     if "storico_report" not in st.session_state: 
         st.session_state.storico_report = []
+
+    if "ls_master" not in st.session_state:
+        st.session_state.ls_master = LocalStorage(key="MASTER_POINTER")
 
 
 
@@ -66,77 +71,152 @@ def resetta_tutto_il_sistema():
         master.deleteItem("chiave_valida")
             
     st.session_state.ls_registry = {}
+    import glob
+    import os
+    for f in glob.glob("/tmp/*.jpg"): # O un pattern più specifico tipo /tmp/allegato_*.jpg
+        try:
+            os.remove(f)
+        except:
+            pass
     st.toast("Sistema resettato!", icon="🔄")
 
-# --- 2. FUNZIONI DI SALVATAGGIO E RECUPERO UNIFICATE ---
-# 1. Inizializzazione (nella funzione inizializza_stato)
-if "log_text" not in st.session_state:
-    st.session_state.log_text = "Sistema pronto."
-if "log_version" not in st.session_state:
-    st.session_state.log_version = 0
 
-# 2. Funzione di salvataggio
+
+
 def salva_stato_completo():
-    master = get_ls("MASTER_POINTER")
-    chiave_attuale = master.getItem("chiave_valida")
-    if not chiave_attuale:
-        chiave_attuale = f"storage_{random.randint(10000, 99999)}"
-        master.setItem("chiave_valida", chiave_attuale)
+    # 1. RESET TOTALE DEL LOG (Nessuna concatenazione)
+    st.session_state.debug_log = "Avvio salvataggio..."
     
-    localS = get_ls(chiave_attuale)
-    data = {
-        "anagrafica": st.session_state.anagrafica,
-        "storico_report": st.session_state.storico_report,
-        "edits": st.session_state.edits
-    }
-    localS.setItem("imprendo_dati", data)
-    
-    st.session_state.log_text = f"Salvato: {time.strftime('%H:%M:%S')}"
-    st.session_state.log_version += 1
-    st.rerun()
+    # 2. CONTROLLO DI COERENZA
+    if not st.session_state.storico_report:
+        st.session_state.debug_log = "Salvataggio non eseguito: storico vuoto."
+        return
 
-# 3. Widget nella sidebar
-with st.sidebar.expander("🛠️ LOG DI SISTEMA", expanded=True):
-    st.text_area(
-        "Log:", 
-        value=st.session_state.log_text, 
-        key=f"log_area_{st.session_state.log_version}", 
-        disabled=True
-    )
+    try:
+        # 3. PULL DATI (Sincronizzazione Widget -> State)
+        salt = st.session_state.get("anagrafica_version", 0)
+        for campo in st.session_state.anagrafica.keys():
+            key_widget = f"widget_{campo}_{salt}"
+            if key_widget in st.session_state:
+                st.session_state.anagrafica[campo] = st.session_state[key_widget]
+        
+        # 4. PREPARAZIONE STRUTTURA DATI
+        data = {
+            "anagrafica": st.session_state.anagrafica,
+            "storico_report": st.session_state.storico_report,
+            "edits": st.session_state.edits
+        }
+        
+        # 5. SCRITTURA SU LOCALSTORAGE MASTER
+        ls = st.session_state.ls_master
+        chiave = ls.getItem("chiave_valida")
+        if not chiave:
+            chiave = f"storage_{random.randint(10000, 99999)}"
+            ls.setItem("chiave_valida", chiave)
+            
+        ls.setItem("imprendo_dati", data)
+        
+        # 6. LOG DETTAGLIATO E COMPLETO (Dump chirurgico)
+        # Espandiamo le anteprime per vedere i contenuti reali
+        report_preview = []
+        for r in data['storico_report']:
+            report_preview.append({
+                "id": r.get("id"),
+                "trascrizione_anteprima": r.get("trascrizione", "")[:100],
+                "path_img": r.get("img_path"),
+                "punti_critici_conteggio": len(r.get("report", {}).get("analisi_per_immagine", [{}])[0].get("punti_critici", []))
+            })
+
+        st.session_state.debug_log = (
+            f"SALVATAGGIO OK: {time.strftime('%H:%M:%S')}\n"
+            f"CHIAVE: {chiave}\n\n"
+            f"--- ANAGRAFICA (12 campi) ---\n"
+            f"{json.dumps(data['anagrafica'], indent=2)}\n\n"
+            f"--- STORICO REPORT ({len(report_preview)} elementi) ---\n"
+            f"{json.dumps(report_preview, indent=2)}\n\n"
+            f"--- EDITS (CONTENUTI REALI) ---\n"
+            f"{json.dumps(data['edits'], indent=2)}"
+        )
+        
+        st.toast("Salvato correttamente!", icon="💾")
+        
+    except Exception as e:
+        st.session_state.debug_log = f"!!! ERRORE CRITICO !!!\n{str(e)}"
+        st.error(f"Errore: {e}")
 
         
 
-# 4. Recupero
+
+
 def recupera_stato_completo():
-    master = LocalStorage(key="MASTER_POINTER")
-    chiave_reale = master.getItem("chiave_valida")
+    st.session_state.debug_log = "Avvio recupero dati..."
     
-    if not chiave_reale:
-        return False
+    try:
+        # 1. Usiamo l'istanza globale (NIENTE NUOVE ISTANZE per non crashare)
+        master = st.session_state.ls_master
         
-    localS = LocalStorage(key=chiave_reale)
-    dati = localS.getItem("imprendo_dati")
-    
-    if dati:
-        # Ripristino dati
+        # 2. Leggiamo direttamente la chiave e i dati
+        chiave_reale = master.getItem("chiave_valida")
+        dati = master.getItem("imprendo_dati")
+        
+        if not dati:
+            st.session_state.debug_log = "RECUPERO FALLITO: Nessun dato trovato nel LocalStorage."
+            return False
+            
+        # 3. Ripristino Dati Base
         st.session_state.anagrafica = dati.get("anagrafica", {})
         st.session_state.edits = dati.get("edits", {})
         
-        # --- RESETTA LE VERSIONI DEI WIDGET ---
-        # Questo costringe i frammenti a rigenerare i widget con i nuovi dati caricati
+        # 4. FORZATURA REFRESH WIDGET (FONDAMENTALE)
+        # Cambiamo la versione per distruggere i vecchi widget e farli rinascere con i dati nuovi
+        if "anagrafica_version" in st.session_state:
+            st.session_state.anagrafica_version += 1
+        else:
+            st.session_state.anagrafica_version = 1
+            
         st.session_state.widget_version = {k: 0 for k in st.session_state.anagrafica.keys()}
         
-        # Ripristino storico (logica bytes esistente)
+        # 5. Ripristino Storico con controllo path
         storico_recuperato = []
+        immagini_perse = 0
+        
         for item in dati.get("storico_report", []):
             item_copy = item.copy()
-            if "bytes" in item_copy and isinstance(item_copy["bytes"], str):
-                item_copy["bytes"] = base64.b64decode(item_copy["bytes"])
+            
+            # Controllo di sicurezza su disco
+            path = item_copy.get("img_path")
+            if path and not os.path.exists(path):
+                # Se il file temporaneo è stato cancellato dal server
+                item_copy["img_path"] = None 
+                immagini_perse += 1
+            
             storico_recuperato.append(item_copy)
+            
         st.session_state.storico_report = storico_recuperato
         
+        # 6. LOG DI CONFERMA TOTALE
+        st.session_state.debug_log = (
+            f"RECUPERO OK: {time.strftime('%H:%M:%S')}\n"
+            f"CHIAVE LETTA: {chiave_reale}\n\n"
+            f"--- ANAGRAFICA RIPRISTINATA ---\n"
+            f"{json.dumps(st.session_state.anagrafica, indent=2)}\n\n"
+            f"--- STORICO REPORT ---\n"
+            f"Report caricati: {len(st.session_state.storico_report)}\n"
+            f"Immagini assenti dal disco: {immagini_perse}\n\n"
+            f"--- EDITS ---\n"
+            f"Voci ripristinate: {len(st.session_state.edits)}\n"
+        )
+        
         return True
-    return False
+        
+    except Exception as e:
+        st.session_state.debug_log = f"!!! ERRORE CRITICO RECUPERO !!!\n{str(e)}"
+        st.error(f"Errore durante il caricamento: {e}")
+        return False
+
+
+
+
 
 
 

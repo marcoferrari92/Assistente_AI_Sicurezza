@@ -13,14 +13,78 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from Lib_Outlook import invia_report_via_email_graph
 from Lib_Image import get_img_bytes_optimized, disegna_punti_critici
 from Lib_AI import elabora_anagrafica_ai, elabora_campo_tecnico_ai, analizza_sicurezza_cantiere
-from Lib_Utility import login, salva_stato_completo, recupera_stato_completo, resetta_tutto_il_sistema, inizializza_stato
+from Lib_Utility import login, resetta_tutto_il_sistema, inizializza_stato, salva_stato_completo
 from Lib_Word import genera_report_finale
 from Lib_Style import set_global_styles, set_bg_color
 
-    
 
 
-
+def recupera_stato_completo():
+    st.session_state.debug_log = "Avvio recupero dati..."
+    import json
+    from streamlit_local_storage import LocalStorage
+    try:
+        # 1. Usiamo l'istanza globale (NIENTE NUOVE ISTANZE per non crashare)
+        master = st.session_state.ls_master
+        
+        # 2. Leggiamo direttamente la chiave e i dati
+        chiave_reale = master.getItem("chiave_valida")
+        dati = master.getItem("imprendo_dati")
+        
+        if not dati:
+            st.session_state.debug_log = "RECUPERO FALLITO: Nessun dato trovato nel LocalStorage."
+            return False
+            
+        # 3. Ripristino Dati Base
+        st.session_state.anagrafica = dati.get("anagrafica", {})
+        st.session_state.edits = dati.get("edits", {})
+        
+        # 4. FORZATURA REFRESH WIDGET (FONDAMENTALE)
+        # Cambiamo la versione per distruggere i vecchi widget e farli rinascere con i dati nuovi
+        if "anagrafica_version" in st.session_state:
+            st.session_state.anagrafica_version += 1
+        else:
+            st.session_state.anagrafica_version = 1
+            
+        st.session_state.widget_version = {k: 0 for k in st.session_state.anagrafica.keys()}
+        
+        # 5. Ripristino Storico con controllo path
+        storico_recuperato = []
+        immagini_perse = 0
+        
+        for item in dati.get("storico_report", []):
+            item_copy = item.copy()
+            
+            # Controllo di sicurezza su disco
+            path = item_copy.get("img_path")
+            if path and not os.path.exists(path):
+                # Se il file temporaneo è stato cancellato dal server
+                item_copy["img_path"] = None 
+                immagini_perse += 1
+            
+            storico_recuperato.append(item_copy)
+            
+        st.session_state.storico_report = storico_recuperato
+        
+        # 6. LOG DI CONFERMA TOTALE
+        st.session_state.debug_log = (
+            f"RECUPERO OK: {time.strftime('%H:%M:%S')}\n"
+            f"CHIAVE LETTA: {chiave_reale}\n\n"
+            f"--- ANAGRAFICA RIPRISTINATA ---\n"
+            f"{json.dumps(st.session_state.anagrafica, indent=2)}\n\n"
+            f"--- STORICO REPORT ---\n"
+            f"Report caricati: {len(st.session_state.storico_report)}\n"
+            f"Immagini assenti dal disco: {immagini_perse}\n\n"
+            f"--- EDITS ---\n"
+            f"Voci ripristinate: {len(st.session_state.edits)}\n"
+        )
+        
+        return True
+        
+    except Exception as e:
+        st.session_state.debug_log = f"!!! ERRORE CRITICO RECUPERO !!!\n{str(e)}"
+        st.error(f"Errore durante il caricamento: {e}")
+        return False
 
 
 
@@ -350,10 +414,11 @@ def barra_salvataggio_superiore():
             # Pulsante visibile subito, stile primario
             if st.button("💾 SALVA BOZZA ATTUALE", type="primary", use_container_width=True):
                 with st.spinner("Salvataggio in corso..."):
-                    # Qui forziamo l'aggiornamento di session_state dai widget
-                    # (Streamlit lo fa automaticamente se usi le key, ma è un buon momento per forzare)
+                    # TEST DI CONNETTIVITÀ
+                    st.session_state.debug_log = "TEST: Il bottone è stato premuto!\n" + st.session_state.debug_log
+                    
+                    # Ora chiama la funzione
                     salva_stato_completo()
-                    st.toast("Salvato correttamente!", icon="✅")
     st.divider()
 
 # Chiamata alla funzione subito dopo il Login
@@ -361,6 +426,14 @@ if utente_connesso:
     barra_salvataggio_superiore()
 
     status_placeholder = st.empty()
+
+
+    # Invece di usare st.text_area semplice, usiamo st.session_state.log_text
+    # Inizializzalo se non esiste
+    if "debug_log" not in st.session_state:
+        st.session_state.debug_log = "Attendo azioni..."
+    st.sidebar.subheader("DEBUG")
+    st.sidebar.text_area("Log Persistente:", value=st.session_state.debug_log, height=300)
 
 
     st.sidebar.subheader("Reset App")
