@@ -306,13 +306,14 @@ def widget_analisi_immagine(idx, data):
 
 @st.fragment
 def render_expander_report(id_univoco, mostra_marker):
-    # Recupero sicuro
-    data = next((r for r in st.session_state.storico_report if r["id"] == id_univoco), None)
+    # 1. Recupero sicuro usando l'ID ricevuto come argomento
+    data = next((r for r in st.session_state.storico_report if r.get("id") == id_univoco), None)
+    
     if data is None: 
         return 
     
-    # Estrazione (usa data che hai già recuperato)
-    nome_file       = data.get("nome_file", "File senza nome")
+    # 2. Estrazione dati sicura
+    nome_file       = data.get("nome_file", "File")
     report          = data.get("report", {})
     punti_totali    = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
     titolo          = report.get("riassunto_generale", f"Analisi {nome_file}")
@@ -569,11 +570,13 @@ if utente_connesso:
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
         
-  
-        if st.session_state.storico_report:
-            for data in st.session_state.storico_report:
-                # PASSAGGIO CRITICO: passiamo solo l'ID
-                render_expander_report(data["id"], mostra_marker)
+        if "storico_report" in st.session_state and st.session_state.storico_report:
+            # Creiamo una lista sicura di ID per evitare errori di iterazione
+            lista_id = [r.get("id") for r in st.session_state.storico_report if r.get("id")]
+            
+            for id_univoco in lista_id:
+                # Chiamiamo la funzione passando solo l'ID
+                render_expander_report(id_univoco, mostra_marker)
                 
     with tab3:
 
