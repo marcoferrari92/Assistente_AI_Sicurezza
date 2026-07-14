@@ -1,6 +1,7 @@
 
 import base64
 import time
+import uuid 
 import streamlit as st
 from PIL import Image
 from streamlit_mic_recorder import mic_recorder
@@ -187,6 +188,108 @@ def widget_punto_critico(idx, idx_p, p, report):
                     st.rerun() # Il rerun qui ricarica SOLO questo frammento!
 
 
+@st.fragment
+def widget_analisi_immagine(idx, data):
+    """Frammento per gestire la modifica del verbale di analisi."""
+    key_testo = f"edit_testo_{idx}"
+    
+    # Inizializzazione se non presente
+    if key_testo not in st.session_state.edits:
+        st.session_state.edits[key_testo] = data["trascrizione"]
+
+    # Widget di testo
+    valore_attuale = st.session_state.edits[key_testo]
+    st.session_state.edits[key_testo] = st.text_area(
+        "Modifica il verbale:", 
+        value=valore_attuale, 
+        height=230,
+        key=f"text_area_{key_testo}"
+    )
+
+
+
+
+@st.fragment
+def render_expander_report(id_univoco, data, mostra_marker):
+    # Recuperiamo l'indice reale basandoci sull'ID univoco
+    idx = next((i for i, r in enumerate(st.session_state.storico_report) if r["id"] == id_univoco), None)
+    
+    if idx is None: 
+        return 
+
+    nome_file       = data["nome_file"]
+    report          = data["report"]
+    punti_totali    = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
+    titolo          = report.get("riassunto_generale", f"Analisi {nome_file}")
+    
+    with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=f"expander_{id_univoco}"):
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            # 2. IMMAGINE INTERATTIVA
+            img_da_disegnare = data.get("bytes")
+            if img_da_disegnare:
+                img_display = disegna_punti_critici(img_da_disegnare, punti_totali, abilita_marker=mostra_marker)
+            else:
+                img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
+
+            click_data = streamlit_image_coordinates(
+                img_display, 
+                key=f"img_click_{id_univoco}",
+                width=350
+            )
+
+            # 3. Logica per aggiungere il punto se l'utente clicca
+            if click_data is not None:
+                if st.button("📍 Fissa punto qui", key=f"fix_{id_univoco}"):
+                    w, h = img_display.size
+                    x_norm = (click_data['x'] / w) * 1000
+                    y_norm = (click_data['y'] / h) * 1000
+                    
+                    punto_vuoto_trovato = False
+                    for p in report['analisi_per_immagine'][0]['punti_critici']:
+                        if p.get('coordinate', {}).get('x') is None:
+                            p['coordinate'] = {'x': x_norm, 'y': y_norm}
+                            punto_vuoto_trovato = True
+                            break
+                    
+                    if not punto_vuoto_trovato:
+                        report['analisi_per_immagine'][0]['punti_critici'].append({
+                            "elemento": "Punto Manuale",
+                            "commento": "Aggiunto manualmente",
+                            "coordinate": {"x": x_norm, "y": y_norm},
+                            "oggetto": "Nota manuale"
+                        })
+                    
+                    st.session_state.storico_report[idx]['report'] = report
+                    st.rerun()
+
+            # 1. PULSANTI DI SISTEMA
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+                # Usiamo un callback per essere sicuri che l'azione avvenga prima del rerun
+                def elimina_report():
+                    st.session_state.storico_report = [r for r in st.session_state.storico_report if r["id"] != id_univoco]
+                    salva_stato_completo()
+
+                if st.button("🗑️ Elimina", key=f"del_{id_univoco}", on_click=elimina_report):
+                    st.rerun()
+
+            if c4.button("🧹 Svuota Marker", key=f"clear_markers_{id_univoco}"):
+                for img_data in report.get("analisi_per_immagine", []):
+                    for p in img_data['punti_critici']:
+                        p['coordinate'] = {'x': None, 'y': None} 
+                st.session_state.storico_report[idx]['report'] = report
+                st.rerun()
+
+        with col2:
+            st.markdown("#### Analisi")
+            widget_analisi_immagine(idx, data)
+            
+            st.markdown("#### ⚠️ Punti critici rilevati")
+            for idx_p, p in enumerate(punti_totali):
+                widget_punto_critico(idx, idx_p, p, report)
+
 
 # APP PRINCIPALE
 inizializza_stato()
@@ -331,7 +434,10 @@ if utente_connesso:
                     if "storico_report" not in st.session_state: 
                         st.session_state.storico_report = []
                     
+                    
+    
                     st.session_state.storico_report.append({
+                        "id": str(uuid.uuid4()),
                         "nome_file": file.name, 
                         "report": report, 
                         "trascrizione": testo, 
@@ -350,141 +456,13 @@ if utente_connesso:
 
     # --- TAB 2: VISUALIZZAZIONE E GESTIONE ---
     with tab2:
+        
         if st.session_state.storico_report:
-            # Creiamo una copia della lista per evitare problemi di iterazione durante la modifica
-            report_list = st.session_state.storico_report
-            
-            for idx in range(len(report_list)):
-                data = report_list[idx]
+            # Non serve più creare una copia della lista, itera direttamente
+            for data in st.session_state.storico_report:
+                # Passiamo l'ID unico invece dell'indice idx
+                render_expander_report(data["id"], data, mostra_marker)
                 
-                # CHIAVE SEMPLICE E UNIVOVA BASATA SULL'INDICE ATTUALE
-                # Aggiungiamo un timestamp casuale se vuoi forzare il reset totale, 
-                # ma per ora basiamoci sull'indice.
-                expander_key = f"expander_box_{idx}"
-                
-                nome_file = data["nome_file"]
-                report = data["report"]
-                punti_totali = [p for img_data in report.get("analisi_per_immagine", []) for p in img_data['punti_critici']]
-                titolo = report.get("riassunto_generale", f"Analisi {nome_file}")
-                
-                with st.expander(f"🔍 {titolo.upper()} ({nome_file})", expanded=True, key=expander_key):
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        
-                        # 2. IMMAGINE INTERATTIVA
-                        img_da_disegnare = data.get("bytes")
-                        if img_da_disegnare:
-                            # Caso standard: hai i bytes, disegna tutto
-                            img_display = disegna_punti_critici(img_da_disegnare, punti_totali, abilita_marker=mostra_marker)
-                        else:
-                            # Caso fallback: non hai i bytes (sono stati filtrati), 
-                            # ma forse hai il file caricato nel widget uploader o altro riferimento?
-                            # Se non c'è, carica un'immagine neutra per evitare il crash
-                            
-                            img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
-                            st.warning("Immagine originale non caricata in memoria.")
-
-
-                        # 2. Rendiamo l'immagine cliccabile (al posto di st.image)
-                        # Nota: dobbiamo passare l'immagine PIL (img_display)
-                        click_data = streamlit_image_coordinates(
-                            img_display, 
-                            key=f"img_click_{idx}",
-                            width=350
-                        )
-
-                        # 3. Logica per aggiungere il punto se l'utente clicca
-                        if click_data is not None:
-                            if st.button("📍 Fissa punto qui", key=f"fix_{idx}"):
-                                w, h = img_display.size
-                                x_norm = (click_data['x'] / w) * 1000
-                                y_norm = (click_data['y'] / h) * 1000
-                                
-                                # CERCHIAMO IL PRIMO PUNTO CON COORDINATE NONE
-                                punto_vuoto_trovato = False
-                                for p in report['analisi_per_immagine'][0]['punti_critici']:
-                                    if p.get('coordinate', {}).get('x') is None:
-                                        p['coordinate'] = {'x': x_norm, 'y': y_norm}
-                                        punto_vuoto_trovato = True
-                                        break
-                                
-                                # SE NON CI SONO PUNTI VUOTI, NE AGGIUNGIAMO UNO NUOVO
-                                if not punto_vuoto_trovato:
-                                    report['analisi_per_immagine'][0]['punti_critici'].append({
-                                        "elemento": "Punto Manuale",
-                                        "commento": "Aggiunto manualmente",
-                                        "coordinate": {"x": x_norm, "y": y_norm},
-                                        "oggetto": "Nota manuale"
-                                    })
-                                
-                                st.session_state.storico_report[idx]['report'] = report
-                                #salva_stato_completo()
-                                #st.rerun()
-
-                        
-                        # 1. PULSANTI DI SISTEMA (Spostati in alto per evitare conflitti)
-                        c1, c2, c3, c4 = st.columns(4)
-
-                        with c1:
-                            if st.button("🗑️ Elimina", key=f"del_{idx}"):
-                                # 1. Rimuovi l'elemento corretto dalla lista
-                                st.session_state.storico_report.pop(idx)
-                                
-                                # 2. Pulisci SOLO le chiavi associate all'indice rimosso
-                                # (Questo è opzionale ma pulito)
-                                # keys_to_delete = [k for k in st.session_state.keys() if f"_{idx}" in k]
-                                # for k in keys_to_delete:
-                                #     del st.session_state[k]
-                                    
-                                # 3. Salva e Ricarica
-                                salva_stato_completo()
-                                st.rerun()
-                            
-                        # NUOVO PULSANTE: Svuota solo le coordinate (i testi restano!)
-
-                        if c4.button("🧹 Svuota Marker", key=f"clear_markers_{idx}"):
-                            for img_data in report.get("analisi_per_immagine", []):
-                                for p in img_data['punti_critici']:
-                                    p['coordinate'] = {'x': None, 'y': None} # Rende i cerchi invisibili
-                            st.session_state.storico_report[idx]['report'] = report
-                            #salva_stato_completo()
-                            st.rerun()
-
-
-                    with col2:
-                        st.markdown("#### Analisi")
-                        
-                        # 1. Inizializzazione dati (solo se mancano)
-                        key_testo = f"edit_testo_{idx}"
-                        if key_testo not in st.session_state.edits:
-                            st.session_state.edits[key_testo] = data["trascrizione"]
-
-                        # 2. Sincronizzazione: Se l'AI ha generato un nuovo testo (es. dopo un rework), 
-                        # aggiorniamo il valore SOLO SE l'utente non ha ancora iniziato a modificare manualmente
-                        # oppure se forziamo un reset.
-                        # Consiglio: non usare st.session_state.edits[key_testo] != data["trascrizione"] 
-                        # qui dentro se vuoi che l'utente possa editare senza che l'AI sovrascriva.
-                        # Fai l'aggiornamento solo quando chiami la funzione "rework" (nel Tab 2).
-
-                        # 3. WIDGET CON CHIAVE STATICA (La chiave NON DEVE dipendere da ver)
-                        valore_attuale = st.session_state.edits[key_testo]
-
-                        st.session_state.edits[key_testo] = st.text_area(
-                            "Modifica il verbale:", 
-                            value=valore_attuale, 
-                            height=230,
-                            key=key_testo 
-                            #on_change=salva_stato_completo 
-                        )
-                        
-                        st.markdown("#### ⚠️ Punti critici rilevati")
-                        
-                        # Usiamo un contatore sicuro
-                        for idx_p, p in enumerate(punti_totali):
-                            widget_punto_critico(idx, idx_p, p, report)
-
-
-    
     with tab3:
 
         form_anagrafiche()
