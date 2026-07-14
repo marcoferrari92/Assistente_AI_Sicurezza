@@ -306,13 +306,15 @@ def widget_analisi_immagine(idx, data):
 
 @st.fragment
 def render_expander_report(id_univoco, mostra_marker):
-    # 1. Recupero sicuro dell'oggetto data usando .get()
-    # Cerchiamo l'elemento che ha l'id corrispondente
-    data = next((r for r in st.session_state.storico_report if r.get("id") == id_univoco), None)
     
-    # Se non lo troviamo, usciamo subito
+    # 1. Filtra lo storico per eliminare elementi senza ID (pulisce lo stato)
+    if any("id" not in r for r in st.session_state.storico_report):
+        st.session_state.storico_report = [r for r in st.session_state.storico_report if "id" in r]
+    
+    # 2. Recupero sicuro
+    data = next((r for r in st.session_state.storico_report if r.get("id") == id_univoco), None)
     if data is None: 
-        return 
+        return
     
     # 2. Calcolo sicuro dell'indice
     # Usiamo .get("id") anche qui per evitare KeyError
@@ -387,7 +389,8 @@ def render_expander_report(id_univoco, mostra_marker):
             with c1:
                 # Definisci il bottone SENZA on_click
                 if st.button("🗑️ Elimina", key=f"del_{id_univoco}"):
-                    st.session_state.storico_report = [r for r in st.session_state.storico_report if r["id"] != id_univoco]
+                    # Sostituisci la riga 390 con questa:
+                    st.session_state.storico_report = [r for r in st.session_state.storico_report if r.get("id") and r.get("id") != id_univoco]
                     st.rerun()
 
             if c4.button("🧹 Svuota Marker", key=f"clear_markers_{id_univoco}"):
