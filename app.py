@@ -19,25 +19,24 @@ from Lib_Style import set_global_styles, set_bg_color
 
 
 def resetta_tutto_il_sistema():
-    # 1. Pulizia selettiva dei dati (NON svuotare widget_version o chiavi di sistema)
+    # 1. Pulisci solo i dati utente
     st.session_state.anagrafica = {}
     st.session_state.edits = {}
     st.session_state.storico_report = []
     
-    # 2. Resetta i valori dei widget (svuota i campi di input)
-    # Identifichiamo le chiavi dei widget e forziamo la stringa vuota
+    # 2. Svuota solo i valori dei widget (senza toccare il dizionario widget_version)
     for k in list(st.session_state.keys()):
         if k.startswith("widget_") or k.startswith("field_"):
             st.session_state[k] = ""
             
-    # 3. RIPRISTINO FORZATO (Questo evita il TypeError sul dizionario)
-    # Se widget_version è stato perso, lo ricreiamo vuoto
-    if "widget_version" not in st.session_state:
+    # 3. RIPRISTINO DI SICUREZZA (Soluzione al TypeError)
+    # Assicurati che sia sempre un dizionario PRIMA di fare qualsiasi operazione
+    if not isinstance(st.session_state.get("widget_version"), dict):
         st.session_state.widget_version = {}
-    else:
-        # Se esiste, azzeriamo solo le singole entrate, non eliminiamo il dizionario
-        for k in st.session_state.widget_version:
-            st.session_state.widget_version[k] = 0
+    
+    # Ora che siamo certi che sia un dizionario, azzeriamo i valori
+    for k in st.session_state.widget_version:
+        st.session_state.widget_version[k] = 0
 
     # 4. Pulizia file
     import glob, os
