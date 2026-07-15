@@ -4,7 +4,7 @@ import time
 import uuid 
 import os
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageOps
 from streamlit_mic_recorder import mic_recorder
 from streamlit_image_coordinates import streamlit_image_coordinates
 
@@ -12,7 +12,7 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 # LIBRARIES 
 from Lib_Outlook import invia_report_via_email_graph
 from Lib_Image import get_img_bytes_optimized, disegna_punti_critici
-from Lib_AI import elabora_anagrafica_ai, elabora_campo_tecnico_ai, analizza_sicurezza_cantiere
+from Lib_AI import elabora_anagrafica_ai, elabora_campo_tecnico_ai, analizza_sicurezza_cantiere, verifica_connessione_ai
 from Lib_Utility import login, inizializza_stato, salva_stato_completo
 from Lib_Word import genera_report_finale
 from Lib_Style import set_global_styles, set_bg_color
@@ -337,27 +337,42 @@ def render_expander_report(id_univoco, mostra_marker):
         with col1:
             img_path = data.get("img_path")
             
+            # 1. Carica l'immagine (già presente nel tuo codice)
             if img_path and os.path.exists(img_path):
                 with open(img_path, "rb") as f:
                     img_bytes = f.read()
+                # img_display è l'immagine con i marker disegnati
                 img_display = disegna_punti_critici(img_bytes, punti_totali, abilita_marker=mostra_marker)
             else:
                 img_display = Image.new('RGB', (300, 300), color=(200, 200, 200))
 
+            # 2. Cattura il click
             click_data = streamlit_image_coordinates(
                 img_display, 
                 key=f"img_click_{id_univoco}",
-                width=350
+                width=350 # Questa è la larghezza "fissa" che vedi nel browser
             )
 
-            # Logica Fissa punto (Aggiorna il record tramite ID)
+            # 3. Calcolo corretto (USA LE DIMENSIONI DI img_display)
             if click_data is not None:
                 if st.button("📍 Fissa punto qui", key=f"fix_{id_univoco}"):
-                    w, h = img_display.size
-                    x_norm = (click_data['x'] / w) * 1000
-                    y_norm = (click_data['y'] / h) * 1000
+                    # 1. Ottieni le dimensioni reali dell'immagine che hai disegnato
+                    w_reale, h_reale = img_display.size
                     
-                    # Trova il punto nell'oggetto 'data' locale
+                    # 2. Calcola l'altezza corretta basata sulla larghezza del widget (350px)
+                    # L'altezza nel browser sarà: (larghezza_widget / larghezza_reale) * altezza_reale
+                    w_widget = 350
+                    h_widget = (w_widget / w_reale) * h_reale
+                    
+                    # 3. Ora calcola le proporzioni (0.0 - 1.0)
+                    # Queste sono indipendenti dalla risoluzione dell'immagine
+                    x_ratio = click_data['x'] / w_widget
+                    y_ratio = click_data['y'] / h_widget
+                    
+                    # 4. Converti in coordinate (0-1000) come facevi prima
+                    x_norm = x_ratio * 1000
+                    y_norm = y_ratio * 1000
+                    
                     punto_vuoto_trovato = False
                     if report.get('analisi_per_immagine'):
                         for p in report['analisi_per_immagine'][0].get('punti_critici', []):
@@ -415,6 +430,15 @@ if "storico_report" in st.session_state and len(st.session_state.storico_report)
     st.sidebar.error("DEBUG: Dati presenti nello stato all'avvio!")
 inizializza_stato()
 
+# --- CONTROLLO INIZIALE ---
+# Eseguiamo il check una sola volta all'avvio
+if "ai_connected" not in st.session_state:
+    connesso, messaggio = verifica_connessione_ai()
+    st.session_state.ai_connected = connesso
+
+# Se non è connesso, fermiamo l'esecuzione dell'app
+if not st.session_state.ai_connected:
+    st.stop()
 
 # --- ORA CHIAMA IL LOGIN ---
 utente_connesso = login()
@@ -538,6 +562,7 @@ if utente_connesso:
                 
                 # 1. Ottimizzazione Immagine (nuova logica)
                 img = Image.open(file).convert("RGB")
+                img = ImageOps.exif_transpose(img)
                 img_bytes_ottimizzati = get_img_bytes_optimized(img)
                 
                 # Creiamo il wrapper per mantenere la compatibilità

@@ -1,5 +1,5 @@
 import io
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 
 
@@ -20,6 +20,7 @@ def get_img_bytes_optimized(pil_img, max_width=1000):
 
 def disegna_punti_critici(image_bytes, lista_punti, abilita_marker=True):
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = ImageOps.exif_transpose(img)
 
     # Se i marker sono disabilitati salta la funzione
     if not abilita_marker:
@@ -41,7 +42,7 @@ def disegna_punti_critici(image_bytes, lista_punti, abilita_marker=True):
             if x_raw is None or y_raw is None:
                 continue
 
-            size = 30
+            size = 80
             
             # --- CORREZIONE: Normalizzazione dinamica ---
             x_raw = coord.get('x', 40)
@@ -50,7 +51,7 @@ def disegna_punti_critici(image_bytes, lista_punti, abilita_marker=True):
             y = (y_raw / 1000) * height if y_raw > 100 else (y_raw / 100) * height
             
             # Disegna cerchio e testo
-            draw.ellipse([x-size, y-size, x+size, y+size], outline=colore, width=3)
-            draw.text((x, y), str(i + 1), fill=colore, font_size=40, anchor="mm")
+            draw.ellipse([x-size, y-size, x+size, y+size], outline=colore, width=8)
+            draw.text((x, y), str(i + 1), fill=colore, font_size=70, anchor="mm")
             
         return img
