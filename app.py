@@ -23,6 +23,8 @@ def resetta_tutto_il_sistema():
     # Questo farà sì che ogni widget (che usa questa versione nella chiave)
     # venga considerato "nuovo" e quindi vuoto.
     st.session_state.app_version = st.session_state.get("app_version", 0) + 1
+
+    st.session_state.force_clear_trigger = True
     
     # 2. Pulisci i dati
     st.session_state.anagrafica = {}
