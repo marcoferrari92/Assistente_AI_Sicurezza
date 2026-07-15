@@ -19,22 +19,26 @@ from Lib_Style import set_global_styles, set_bg_color
 
 
 def resetta_tutto_il_sistema():
-    # 1. Pulisci i dati del modello
+    # 1. Pulizia selettiva dei dati (NON svuotare widget_version o chiavi di sistema)
     st.session_state.anagrafica = {}
     st.session_state.edits = {}
     st.session_state.storico_report = []
     
-    # 2. Resetta i contatori di versione dei widget (PER EVITARE IL TYPEERROR)
-    # Invece di eliminarli, li riportiamo a zero
-    if "widget_version" in st.session_state:
+    # 2. Resetta i valori dei widget (svuota i campi di input)
+    # Identifichiamo le chiavi dei widget e forziamo la stringa vuota
+    for k in list(st.session_state.keys()):
+        if k.startswith("widget_") or k.startswith("field_"):
+            st.session_state[k] = ""
+            
+    # 3. RIPRISTINO FORZATO (Questo evita il TypeError sul dizionario)
+    # Se widget_version è stato perso, lo ricreiamo vuoto
+    if "widget_version" not in st.session_state:
+        st.session_state.widget_version = {}
+    else:
+        # Se esiste, azzeriamo solo le singole entrate, non eliminiamo il dizionario
         for k in st.session_state.widget_version:
             st.session_state.widget_version[k] = 0
-            
-    # 3. Svuota i valori correnti dai widget per il refresh visivo
-    keys_to_clear = [k for k in st.session_state.keys() if k.startswith("widget_") or k.startswith("field_")]
-    for k in keys_to_clear:
-        st.session_state[k] = "" 
-        
+
     # 4. Pulizia file
     import glob, os
     for f in glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg"):
