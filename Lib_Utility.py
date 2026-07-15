@@ -50,7 +50,101 @@ def get_ls(chiave):
     return _storage_cache[chiave]
 
 
+def resetta_tutto_il_sistema():
+    # 1. Pulisci solo i dati utente
+    st.session_state.anagrafica = {}
+    st.session_state.edits = {}
+    st.session_state.storico_report = []
+    
+    # 2. Svuota solo i valori dei widget (senza toccare il dizionario widget_version)
+    for k in list(st.session_state.keys()):
+        if k.startswith("widget_") or k.startswith("field_"):
+            st.session_state[k] = ""
+            
+    # 3. RIPRISTINO DI SICUREZZA (Soluzione al TypeError)
+    # Assicurati che sia sempre un dizionario PRIMA di fare qualsiasi operazione
+    if not isinstance(st.session_state.get("widget_version"), dict):
+        st.session_state.widget_version = {}
+    
+    # Ora che siamo certi che sia un dizionario, azzeriamo i valori
+    for k in st.session_state.widget_version:
+        st.session_state.widget_version[k] = 0
 
+    # 4. Pulizia file
+    import glob, os
+    for f in glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg"):
+        try: os.remove(f)
+        except: pass
+        
+    st.rerun()
+
+
+def recupera_stato_completo():
+    st.session_state.debug_log = "Avvio recupero dati..."
+    import json
+    from streamlit_local_storage import LocalStorage
+    try:
+        # 1. Usiamo l'istanza globale (NIENTE NUOVE ISTANZE per non crashare)
+        master = st.session_state.ls_master
+        
+        # 2. Leggiamo direttamente la chiave e i dati
+        chiave_reale = master.getItem("chiave_valida")
+        dati = master.getItem("imprendo_dati")
+        
+        if not dati:
+            st.session_state.debug_log = "RECUPERO FALLITO: Nessun dato trovato nel LocalStorage."
+            return False
+            
+        # 3. Ripristino Dati Base
+        st.session_state.anagrafica = dati.get("anagrafica", {})
+        st.session_state.edits = dati.get("edits", {})
+        
+        # 4. FORZATURA REFRESH WIDGET (FONDAMENTALE)
+        # Cambiamo la versione per distruggere i vecchi widget e farli rinascere con i dati nuovi
+        if "anagrafica_version" in st.session_state:
+            st.session_state.anagrafica_version += 1
+        else:
+            st.session_state.anagrafica_version = 1
+            
+        st.session_state.widget_version = {k: 0 for k in st.session_state.anagrafica.keys()}
+        
+        # 5. Ripristino Storico con controllo path
+        storico_recuperato = []
+        immagini_perse = 0
+        
+        for item in dati.get("storico_report", []):
+            item_copy = item.copy()
+            
+            # Controllo di sicurezza su disco
+            path = item_copy.get("img_path")
+            if path and not os.path.exists(path):
+                # Se il file temporaneo è stato cancellato dal server
+                item_copy["img_path"] = None 
+                immagini_perse += 1
+            
+            storico_recuperato.append(item_copy)
+            
+        st.session_state.storico_report = storico_recuperato
+        
+        # 6. LOG DI CONFERMA TOTALE
+        st.session_state.debug_log = (
+            f"RECUPERO OK: {time.strftime('%H:%M:%S')}\n"
+            f"CHIAVE LETTA: {chiave_reale}\n\n"
+            f"--- ANAGRAFICA RIPRISTINATA ---\n"
+            f"{json.dumps(st.session_state.anagrafica, indent=2)}\n\n"
+            f"--- STORICO REPORT ---\n"
+            f"Report caricati: {len(st.session_state.storico_report)}\n"
+            f"Immagini assenti dal disco: {immagini_perse}\n\n"
+            f"--- EDITS ---\n"
+            f"Voci ripristinate: {len(st.session_state.edits)}\n"
+        )
+        st.rerun()
+        return True
+        
+    except Exception as e:
+        st.session_state.debug_log = f"!!! ERRORE CRITICO RECUPERO !!!\n{str(e)}"
+        st.error(f"Errore durante il caricamento: {e}")
+        return False
 
 
 def salva_stato_completo():
