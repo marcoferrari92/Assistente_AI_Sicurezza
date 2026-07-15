@@ -19,37 +19,22 @@ from Lib_Style import set_global_styles, set_bg_color
 
 
 def resetta_tutto_il_sistema():
-
-    try:
-        from streamlit_local_storage import LocalStorage
-        # Usiamo l'istanza se esiste nello stato, altrimenti la ricreiamo
-        master = st.session_state.get("ls_master", LocalStorage(key="MASTER_POINTER"))
-        master.setItem("chiave_valida", None)
-        master.setItem("imprendo_dati", None)
-    except Exception as e:
-        st.error(f"Errore pulizia storage: {e}")
-
-    # 2. Pulizia file temporanei su disco
-    import glob
-    import os
-    # Assicurati che i path siano corretti per il tuo ambiente
-    file_da_cancellare = glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg")
-    for f in file_da_cancellare:
-        try:
-            if os.path.exists(f):
-                os.remove(f)
-        except Exception:
-            pass
-            
-    # 3. Resettiamo le chiavi critiche invece di fare clear() totale
-    # clear() a volte causa conflitti con i widget che sono ancora in memoria 
-    # nel ciclo di esecuzione corrente.
-    keys_to_keep = [] # Se vuoi tenere qualcosa, mettilo qui
-    for key in list(st.session_state.keys()):
-        if key not in keys_to_keep:
-            del st.session_state[key]
+    # 1. Incrementa il contatore di versione globale
+    # Questo farà sì che ogni widget (che usa questa versione nella chiave)
+    # venga considerato "nuovo" e quindi vuoto.
+    st.session_state.app_version = st.session_state.get("app_version", 0) + 1
     
-    # 4. Ricarica forzata dello script
+    # 2. Pulisci i dati
+    st.session_state.anagrafica = {}
+    st.session_state.edits = {}
+    st.session_state.storico_report = []
+    
+    # 3. Pulizia file (come prima)
+    import glob, os
+    for f in glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg"):
+        try: os.remove(f)
+        except: pass
+        
     st.rerun()
 
 
