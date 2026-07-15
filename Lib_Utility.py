@@ -50,48 +50,6 @@ def get_ls(chiave):
     return _storage_cache[chiave]
 
 
-def resetta_tutto_il_sistema():
-    # 1. Pulisce la memoria immediata (Session State)
-    keys_to_keep = ["ls_master", "debug_log"] # Manteniamo solo il log e il master pointer
-    for key in list(st.session_state.keys()):
-        if key not in keys_to_keep:
-            del st.session_state[key]
-            
-    # 2. Re-inizializza le strutture base
-    st.session_state.anagrafica = {
-        "mandataria": "", "mandante": "", "committente": "", "indirizzo": "", 
-        "città": "", "provincia": "", "commessa": "", "oggetto": "", 
-        "attività": "", "coordinamento": "", "personale": "", "verbali": ""
-    }
-    st.session_state.storico_report = []
-    st.session_state.edits = {}
-    st.session_state.widget_version = {}
-    st.session_state.anagrafica_version = 0
-
-    # 3. Pulisce il LocalStorage (Fondamentale)
-    try:
-        ls = st.session_state.ls_master
-        chiave_reale = ls.getItem("chiave_valida")
-        if chiave_reale:
-            # Eliminiamo i dati salvati
-            localS = LocalStorage(key=chiave_reale)
-            localS.setItem("imprendo_dati", None) # Sovrascrive con nulla
-            # Eliminiamo il puntatore master
-            ls.setItem("chiave_valida", None)
-            
-        # 4. Pulisce la cartella /tmp (le foto caricate)
-        import glob
-        for f in glob.glob("/tmp/allegato_*.jpg") + glob.glob("/tmp/*.jpg"):
-            try:
-                os.remove(f)
-            except:
-                pass
-                
-        st.session_state.debug_log = "SISTEMA RESETTATO CON SUCCESSO."
-        
-    except Exception as e:
-        st.session_state.debug_log = f"ERRORE RESET: {str(e)}"
-
 
 
 
@@ -157,74 +115,6 @@ def salva_stato_completo():
         st.error(f"Errore: {e}")
 
         
-
-
-
-def recupera_stato_completo():
-    st.session_state.debug_log = "Avvio recupero dati..."
-    
-    try:
-        # 1. Usiamo l'istanza globale (NIENTE NUOVE ISTANZE per non crashare)
-        master = st.session_state.ls_master
-        
-        # 2. Leggiamo direttamente la chiave e i dati
-        chiave_reale = master.getItem("chiave_valida")
-        dati = master.getItem("imprendo_dati")
-        
-        if not dati:
-            st.session_state.debug_log = "RECUPERO FALLITO: Nessun dato trovato nel LocalStorage."
-            return False
-            
-        # 3. Ripristino Dati Base
-        st.session_state.anagrafica = dati.get("anagrafica", {})
-        st.session_state.edits = dati.get("edits", {})
-        
-        # 4. FORZATURA REFRESH WIDGET (FONDAMENTALE)
-        # Cambiamo la versione per distruggere i vecchi widget e farli rinascere con i dati nuovi
-        if "anagrafica_version" in st.session_state:
-            st.session_state.anagrafica_version += 1
-        else:
-            st.session_state.anagrafica_version = 1
-            
-        st.session_state.widget_version = {k: 0 for k in st.session_state.anagrafica.keys()}
-        
-        # 5. Ripristino Storico con controllo path
-        storico_recuperato = []
-        immagini_perse = 0
-        
-        for item in dati.get("storico_report", []):
-            item_copy = item.copy()
-            
-            # Controllo di sicurezza su disco
-            path = item_copy.get("img_path")
-            if path and not os.path.exists(path):
-                # Se il file temporaneo è stato cancellato dal server
-                item_copy["img_path"] = None 
-                immagini_perse += 1
-            
-            storico_recuperato.append(item_copy)
-            
-        st.session_state.storico_report = storico_recuperato
-        
-        # 6. LOG DI CONFERMA TOTALE
-        st.session_state.debug_log = (
-            f"RECUPERO OK: {time.strftime('%H:%M:%S')}\n"
-            f"CHIAVE LETTA: {chiave_reale}\n\n"
-            f"--- ANAGRAFICA RIPRISTINATA ---\n"
-            f"{json.dumps(st.session_state.anagrafica, indent=2)}\n\n"
-            f"--- STORICO REPORT ---\n"
-            f"Report caricati: {len(st.session_state.storico_report)}\n"
-            f"Immagini assenti dal disco: {immagini_perse}\n\n"
-            f"--- EDITS ---\n"
-            f"Voci ripristinate: {len(st.session_state.edits)}\n"
-        )
-        
-        return True
-        
-    except Exception as e:
-        st.session_state.debug_log = f"!!! ERRORE CRITICO RECUPERO !!!\n{str(e)}"
-        st.error(f"Errore durante il caricamento: {e}")
-        return False
 
 
 

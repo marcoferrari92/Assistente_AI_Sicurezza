@@ -430,9 +430,11 @@ def render_expander_report(id_univoco, mostra_marker):
                 widget_punto_critico(id_univoco, idx_p, p, report)
 
 
+
+
+
+
 # APP PRINCIPALE
-if "storico_report" in st.session_state and len(st.session_state.storico_report) > 0:
-    st.sidebar.error("DEBUG: Dati presenti nello stato all'avvio!")
 inizializza_stato()
 
 # --- CONTROLLO INIZIALE ---
@@ -510,7 +512,7 @@ if utente_connesso:
     if "debug_log" not in st.session_state:
         st.session_state.debug_log = "Attendo azioni..."
     st.sidebar.subheader("DEBUG")
-    st.sidebar.text_area("Log Persistente:", value=st.session_state.debug_log, height=300)
+    st.sidebar.text_area("Log Persistente:", value=st.session_state.debug_log, height=100)
 
 
     st.sidebar.subheader("Reset App")
