@@ -19,26 +19,37 @@ from Lib_Style import set_global_styles, set_bg_color
 
 
 def resetta_tutto_il_sistema():
-    # 1. Distruzione immediata della chiave master nel browser
+
     try:
         from streamlit_local_storage import LocalStorage
-        master = LocalStorage(key="MASTER_POINTER")
-        # Sovrascriviamo la chiave con None
+        # Usiamo l'istanza se esiste nello stato, altrimenti la ricreiamo
+        master = st.session_state.get("ls_master", LocalStorage(key="MASTER_POINTER"))
         master.setItem("chiave_valida", None)
-    except:
-        pass
+        master.setItem("imprendo_dati", None)
+    except Exception as e:
+        st.error(f"Errore pulizia storage: {e}")
 
-    # 2. Pulizia file temporanei (già corretta)
+    # 2. Pulizia file temporanei su disco
     import glob
     import os
-    for f in glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg"):
-        try: os.remove(f)
-        except: pass
+    # Assicurati che i path siano corretti per il tuo ambiente
+    file_da_cancellare = glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg")
+    for f in file_da_cancellare:
+        try:
+            if os.path.exists(f):
+                os.remove(f)
+        except Exception:
+            pass
             
-    # 3. Pulisci TUTTO lo stato (incluso user_data)
-    st.session_state.clear()
+    # 3. Resettiamo le chiavi critiche invece di fare clear() totale
+    # clear() a volte causa conflitti con i widget che sono ancora in memoria 
+    # nel ciclo di esecuzione corrente.
+    keys_to_keep = [] # Se vuoi tenere qualcosa, mettilo qui
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep:
+            del st.session_state[key]
     
-    # 4. Ricarica
+    # 4. Ricarica forzata dello script
     st.rerun()
 
 
