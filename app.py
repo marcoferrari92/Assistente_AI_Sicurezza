@@ -19,20 +19,23 @@ from Lib_Style import set_global_styles, set_bg_color
 
 
 def resetta_tutto_il_sistema():
-    # 1. Pulisci i dati del tuo modello
+    # 1. Pulisci i dati del modello
     st.session_state.anagrafica = {}
     st.session_state.edits = {}
     st.session_state.storico_report = []
     
-    # 2. FORZATURA DEI WIDGET: 
-    # Streamlit salva lo stato del widget nella chiave corrispondente.
-    # Se cancelliamo la chiave dal session_state, il widget "dimentica" il valore.
+    # 2. Resetta i contatori di versione dei widget (PER EVITARE IL TYPEERROR)
+    # Invece di eliminarli, li riportiamo a zero
+    if "widget_version" in st.session_state:
+        for k in st.session_state.widget_version:
+            st.session_state.widget_version[k] = 0
+            
+    # 3. Svuota i valori correnti dai widget per il refresh visivo
     keys_to_clear = [k for k in st.session_state.keys() if k.startswith("widget_") or k.startswith("field_")]
     for k in keys_to_clear:
-        # Impostiamo il valore a stringa vuota o eliminiamo la chiave
         st.session_state[k] = "" 
         
-    # 3. Pulizia file
+    # 4. Pulizia file
     import glob, os
     for f in glob.glob("/tmp/*.jpg") + glob.glob("/tmp/allegato_*.jpg"):
         try: os.remove(f)
