@@ -101,7 +101,7 @@ def recupera_stato_completo():
             f"--- EDITS ---\n"
             f"Voci ripristinate: {len(st.session_state.edits)}\n"
         )
-        
+        st.rerun()
         return True
         
     except Exception as e:
