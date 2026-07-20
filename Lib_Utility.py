@@ -3,6 +3,7 @@ import time
 import random
 import json
 import os
+import datetime
 import streamlit as st
 from streamlit_local_storage import LocalStorage
 
@@ -82,12 +83,13 @@ def resetta_tutto_il_sistema():
 def recupera_stato_completo():
     st.session_state.debug_log = "Avvio recupero dati..."
     import json
+    import datetime
     from streamlit_local_storage import LocalStorage
     try:
-        # 1. Usiamo l'istanza globale (NIENTE NUOVE ISTANZE per non crashare)
+        # 1. Usiamo l'istanza globale
         master = st.session_state.ls_master
         
-        # 2. Leggiamo direttamente la chiave e i dati
+        # 2. Leggiamo i dati
         chiave_reale = master.getItem("chiave_valida")
         dati = master.getItem("imprendo_dati")
         
@@ -96,11 +98,25 @@ def recupera_stato_completo():
             return False
             
         # 3. Ripristino Dati Base
-        st.session_state.anagrafica = dati.get("anagrafica", {})
+        dati_anagrafica = dati.get("anagrafica", {})
+        
+        # DEBUG: Stampiamo cosa stiamo ricevendo realmente
+        #st.write(f"DEBUG DATA RECUPERATA: {dati_anagrafica.get('data')}, Tipo: {type(dati_anagrafica.get('data'))}")
+        
+        if "data" in dati_anagrafica and isinstance(dati_anagrafica["data"], str):
+            try:
+                # Conversione forzata
+                data_convertita = datetime.date.fromisoformat(dati_anagrafica["data"])
+                dati_anagrafica["data"] = data_convertita
+                st.session_state.debug_log += f"\nDEBUG: Data convertita in {data_convertita} (Tipo: {type(data_convertita)})"
+            except Exception as e:
+                st.session_state.debug_log += f"\nDEBUG: Errore conversione: {e}"
+        
+        # ASSEGNAZIONE ESPLICITA
+        st.session_state.anagrafica = dati_anagrafica
         st.session_state.edits = dati.get("edits", {})
         
-        # 4. FORZATURA REFRESH WIDGET (FONDAMENTALE)
-        # Cambiamo la versione per distruggere i vecchi widget e farli rinascere con i dati nuovi
+        # 4. FORZATURA REFRESH WIDGET
         if "anagrafica_version" in st.session_state:
             st.session_state.anagrafica_version += 1
         else:
@@ -108,30 +124,28 @@ def recupera_stato_completo():
             
         st.session_state.widget_version = {k: 0 for k in st.session_state.anagrafica.keys()}
         
-        # 5. Ripristino Storico con controllo path
+        # 5. Ripristino Storico
         storico_recuperato = []
         immagini_perse = 0
-        
         for item in dati.get("storico_report", []):
             item_copy = item.copy()
-            
-            # Controllo di sicurezza su disco
             path = item_copy.get("img_path")
             if path and not os.path.exists(path):
-                # Se il file temporaneo è stato cancellato dal server
                 item_copy["img_path"] = None 
                 immagini_perse += 1
-            
             storico_recuperato.append(item_copy)
-            
         st.session_state.storico_report = storico_recuperato
         
-        # 6. LOG DI CONFERMA TOTALE
+        # 6. LOG DI CONFERMA TOTALE (CORRETTO PER EVITARE SERIALIZZAZIONE DATE)
+        anagrafica_per_log = st.session_state.anagrafica.copy()
+        if isinstance(anagrafica_per_log.get("data"), datetime.date):
+            anagrafica_per_log["data"] = anagrafica_per_log["data"].isoformat()
+            
         st.session_state.debug_log = (
             f"RECUPERO OK: {time.strftime('%H:%M:%S')}\n"
             f"CHIAVE LETTA: {chiave_reale}\n\n"
             f"--- ANAGRAFICA RIPRISTINATA ---\n"
-            f"{json.dumps(st.session_state.anagrafica, indent=2)}\n\n"
+            f"{json.dumps(anagrafica_per_log, indent=2)}\n\n"
             f"--- STORICO REPORT ---\n"
             f"Report caricati: {len(st.session_state.storico_report)}\n"
             f"Immagini assenti dal disco: {immagini_perse}\n\n"
@@ -165,10 +179,19 @@ def salva_stato_completo():
                 st.session_state.anagrafica[campo] = st.session_state[key_widget]
         
         # 4. PREPARAZIONE STRUTTURA DATI
+        def pulisci(obj):
+            if hasattr(obj, 'strftime'):
+                return obj.strftime("%Y-%m-%d")
+            elif isinstance(obj, dict):
+                return {k: pulisci(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [pulisci(i) for i in obj]
+            return obj
+
         data = {
-            "anagrafica": st.session_state.anagrafica,
-            "storico_report": st.session_state.storico_report,
-            "edits": st.session_state.edits
+            "anagrafica": pulisci(st.session_state.anagrafica),
+            "storico_report": pulisci(st.session_state.storico_report),
+            "edits": pulisci(st.session_state.edits)
         }
         
         # 5. SCRITTURA SU LOCALSTORAGE MASTER

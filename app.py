@@ -87,10 +87,11 @@ def form_anagrafiche():
                             else:
                                 val_attuale = datetime.date.today()
                                 
-                            st.session_state.anagrafica[campo_id] = st.date_input(
+                            salt = st.session_state.get("anagrafica_version", 0)
+                            st.date_input(
                                 label, 
-                                value=val_attuale,
-                                key=key_widget
+                                value=st.session_state.anagrafica.get("data"), 
+                                key=f"widget_data_{salt}"  # <--- FONDAMENTALE: cambia la key!
                             )
                         else:
                             st.session_state.anagrafica[campo_id] = st.text_input(
