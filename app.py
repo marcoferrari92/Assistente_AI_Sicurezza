@@ -3,6 +3,7 @@ import base64
 import time
 import uuid 
 import os
+import datetime
 import streamlit as st
 from PIL import Image, ImageOps
 from streamlit_mic_recorder import mic_recorder
@@ -56,11 +57,12 @@ def form_anagrafiche():
                 # Lista definita fuori dal loop
                 campi = [
                     ("mandataria", "Mandataria/e", "area"),
-                    ("mandante", "Mandante/i", "area"),
-                    ("committente", "Ragione Sociale Committente", "input"),
-                    ("indirizzo", "Indirizzo", "input"),
-                    ("città", "Città", "input"),
-                    ("provincia", "Provincia", "input")
+                    #("mandante", "Mandante/i", "area"),
+                    ("committente", "Committente", "input"),
+                    #("indirizzo", "Indirizzo", "input"),
+                    #("città", "Città", "input"),
+                    #("provincia", "Provincia", "input"),
+                    ("data", "Data Sopralluogo", "date")
                 ]
 
                 salt = st.session_state.get("anagrafica_version", 0)
@@ -74,6 +76,20 @@ def form_anagrafiche():
                             st.session_state.anagrafica[campo_id] = st.text_area(
                                 label, 
                                 value=st.session_state.anagrafica.get(campo_id, ""),
+                                key=key_widget
+                            )
+                        elif tipo == "date": # <--- GESTIONE DATA
+                            # Convertiamo in formato data se presente, altrimenti usiamo oggi
+                            
+                            val_attuale = st.session_state.anagrafica.get(campo_id)
+                            if isinstance(val_attuale, str) and val_attuale:
+                                val_attuale = datetime.date.fromisoformat(val_attuale)
+                            else:
+                                val_attuale = datetime.date.today()
+                                
+                            st.session_state.anagrafica[campo_id] = st.date_input(
+                                label, 
+                                value=val_attuale,
                                 key=key_widget
                             )
                         else:
@@ -469,7 +485,7 @@ if utente_connesso:
     mostra_marker = st.sidebar.toggle("Mostra Marker sulla foto", value=True)
 
     # Scelta font
-    font_s = st.sidebar.selectbox("Font", ["Arial", "Calibri", "Times New Roman"], index=0)
+    font_s = st.sidebar.selectbox("Font", ["Arial", "Calibri", "Times New Roman"], index=1)
     
     # Scelta dimensione
     size_s = st.sidebar.slider("Dimensione Font (pt)", min_value=7, max_value=16, value=9)
@@ -573,17 +589,18 @@ if utente_connesso:
                         
         # --- COMMESSA ---
         with st.expander("📝 Commessa e Oggetto", expanded=True):
-            widget_campo_tecnico("commessa", "Commessa", "rec_commessa", "last_commessa_hash")
+            #widget_campo_tecnico("commessa", "Commessa", "rec_commessa", "last_commessa_hash")
             widget_campo_tecnico("oggetto", "Oggetto", "rec_oggetto", "last_oggetto_hash")
         
         # --- CANTIERE ---
         with st.expander("🛠️ Attività e Personale", expanded=True):
             widget_campo_tecnico("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash")
-            widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
-            widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
-            widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
+            #widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
+            #widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
+            #widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
+            widget_campo_tecnico("prescrizioni", "Prescrizioni", "rec_presc", "last_coord_hash")
 
-        form_allegati()
+        #form_allegati()
 
 
         # --- ESPORTAZIONE ---
@@ -594,8 +611,19 @@ if utente_connesso:
             with st.spinner("Generazione documento..."):
                 files = st.session_state.get("file_uploader_allegati", [])
                 files = [f for f in files if f is not None]
-                
+                # 1. Salva il valore originale (l'oggetto data)
+                data_originale = st.session_state.anagrafica.get("data")
+
+                # 2. Trasforma temporaneamente la data in stringa nel session_state
+                if hasattr(data_originale, 'strftime'):
+                    st.session_state.anagrafica["data"] = data_originale.strftime("%d/%m/%Y")
+
+                # 3. Chiama la funzione (che ora legge la stringa nel session_state)
                 doc_bytes = genera_report_finale(st.session_state.storico_report, files)
+
+                # 4. RIPRISTINA la data originale nel session_state 
+                # (Così il widget calendario non va in errore e resta un oggetto data)
+                st.session_state.anagrafica["data"] = data_originale
                 st.session_state.doc_bytes = doc_bytes 
                 st.success("Report generato!")
 
