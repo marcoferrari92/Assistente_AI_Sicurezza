@@ -70,11 +70,79 @@ def genera_report_finale(storico, uploaded_files=None):
                                 run.font.name = font_name
                                 run.font.size = Pt(font_size)
 
-    # 1. Sostituzione Anagrafica (escludendo il segnaposto allegati se vuoi gestirlo a parte)
+    # 1. Sostituzione Anagrafica (escludendo il personale che gestiamo a tabella)
     if "anagrafica" in st.session_state:
         for key, value in st.session_state.anagrafica.items():
-            if key != "allegati":
+            if key not in ["allegati", "personale"]:
                 replace_text_in_doc(doc, key, value, font_name, font_size)
+
+    # --- GESTIONE SPECIFICA TABELLA PERSONALE ---
+    testo_personale = st.session_state.anagrafica.get("personale", "")
+    if testo_personale.strip():
+        # Cerca il paragrafo o il tag {{personale}} nel documento
+        for para in doc.paragraphs:
+            if "{{personale}}" in para.text:
+                para.text = "" # Pulisce il segnaposto
+                
+                # Crea la tabella nel documento
+                table_pers = doc.add_table(rows=1, cols=2)
+                table_pers.style = 'Table Grid'
+                
+                # Intestazione della tabella
+                hdr_cells = table_pers.rows[0].cells
+                hdr_cells[0].text = "Nome e Cognome"
+                hdr_cells[1].text = "Azienda / Impresa"
+                
+                # Formatta l'intestazione
+                for cell in hdr_cells:
+                    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                    for cp in cell.paragraphs:
+                        for crun in cp.runs:
+                            crun.font.name = font_name
+                            crun.font.size = Pt(font_size)
+                            crun.bold = True
+                    # Opzionale: Sfondo grigio per l'intestazione
+                    tcPr = cell._tc.get_or_add_tcPr()
+                    shd = OxmlElement('w:shd')
+                    shd.set(qn('w:val'), 'clear')
+                    shd.set(qn('w:fill'), 'D9D9D9')
+                    tcPr.append(shd)
+
+                # Legge il testo riga per riga inserito dall'utente/AI
+                for riga in testo_personale.split("\n"):
+                    if riga.strip():
+                        # Cerca un separatore comune tra nome e azienda
+                        parti = None
+                        for sep in [" - ", ": ", " | ", " – "]:
+                            if sep in riga:
+                                parti = riga.split(sep, 1)
+                                break
+                        
+                        if parti:
+                            nome = parti[0].strip()
+                            azienda = parti[1].strip()
+                        else:
+                            nome = riga.strip()
+                            azienda = "Non specificata"
+                            
+                        # Aggiunge i dati alla riga della tabella Word
+                        row_cells = table_pers.add_row().cells
+                        row_cells[0].text = nome
+                        row_cells[1].text = azienda
+                        
+                        # Formatta le celle inserite
+                        for cell in row_cells:
+                            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                            for cp in cell.paragraphs:
+                                for crun in cp.runs:
+                                    crun.font.name = font_name
+                                    crun.font.size = Pt(font_size)
+
+                # Sposta la tabella creata esattamente dove si trovava il paragrafo segnaposto
+                p_elem = para._element
+                p_elem.addprevious(table_pers._tbl)
+                p_elem.getparent().remove(p_elem)
+                break
 
     # 2. GESTIONE ALLEGATI (Logica estesa a Paragrafi e Tabelle)
     def gestisci_allegati_in_container(container):
@@ -94,10 +162,8 @@ def genera_report_finale(storico, uploaded_files=None):
                         run.font.size = Pt(font_size)
                         
                         # Inserimento immagine compressa
-                        # Invece di usare f_data['bytes'], leggi dal path:
                         if f_data['type'].startswith("image"):
                             try:
-                                # Leggi i byte dal percorso salvato
                                 with open(f_data['path'], "rb") as f_in:
                                     img_stream = io.BytesIO(f_in.read())
                                     
@@ -110,15 +176,14 @@ def genera_report_finale(storico, uploaded_files=None):
 
     # Cerca nel corpo principale
     if not gestisci_allegati_in_container(doc):
-        # Cerca in tutte le tabelle (come per gli altri campi)
+        # Cerca in tutte le tabelle
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     if gestisci_allegati_in_container(cell):
                         break
 
-
-    # 1. Trova il paragrafo segnaposto
+    # 1. Trova il paragrafo segnaposto per le analisi tecniche
     target_paragraph = None
     for p in doc.paragraphs:
         if "###TABELLA_ANALISI###" in p.text:
@@ -146,10 +211,9 @@ def genera_report_finale(storico, uploaded_files=None):
             tcPr = tc.get_or_add_tcPr()
             shd = OxmlElement('w:shd')
             shd.set(qn('w:val'), 'clear')
-            shd.set(qn('w:fill'), 'D9D9D9') # Inserisci qui il codice esadecimale del colore
+            shd.set(qn('w:fill'), 'D9D9D9')
             tcPr.append(shd)
 
-    
         # 3. Ciclo sullo storico
         for idx, data in enumerate(storico):
 
@@ -160,42 +224,32 @@ def genera_report_finale(storico, uploaded_files=None):
             else:
                 image_bytes = None
 
-            # Recupera i punti aggiornati (inclusi quelli manipolati dall'utente)
             punti_totali = [p for img_data in data["report"].get("analisi_per_immagine", []) for p in img_data['punti_critici']]
-            
-            # Riga titolo con riassunto specifico
             riassunto_specifico = data["report"].get("riassunto_generale", "Analisi Tecnica")
             
             # Riga titolo
             row_t = table.add_row()
             for cell in row_t.cells:
-                # 1. Imposta l'allineamento verticale
                 cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    
-                # 2. Rimuovi margini interni del paragrafo che potrebbero dare l'illusione di decentramento
                 for para in cell.paragraphs:
                     para.paragraph_format.space_before = Pt(0)
                     para.paragraph_format.space_after = Pt(0)
             
-            # Formattazione FOTOGRAFIA X
             paragrafo_foto = row_t.cells[0].add_paragraph(f"FOTOGRAFIA {idx + 1}")
             run_foto = paragrafo_foto.runs[0]
             run_foto.font.name = font_name
             run_foto.font.size = Pt(font_size)
             run_foto.bold = True
             
-            # Formattazione RIASSUNTO
             paragrafo_t = row_t.cells[1].add_paragraph(riassunto_specifico)
             run_t = paragrafo_t.runs[0]
             run_t.font.name = font_name
             run_t.font.size = Pt(font_size)
             run_t.bold = True
             
-            
             # Riga contenuto
             row_c = table.add_row()
             
-            # --- DISEGNO IMMAGINE CON TAG ---
             img_path = data.get("img_path")
             if img_path and os.path.exists(img_path):
                 with open(img_path, "rb") as f:
@@ -206,12 +260,10 @@ def genera_report_finale(storico, uploaded_files=None):
                 img_taggata.save(img_stream, format='JPEG', quality=95)
                 img_stream.seek(0)
                 
-                # Inserimento immagine
                 row_c.cells[0].add_paragraph().add_run().add_picture(img_stream, width=Inches(2.0))
             else:
                 row_c.cells[0].add_paragraph("Immagine non trovata")
 
-            # Testo verbale
             testo = st.session_state.edits.get(f"edit_testo_{idx}", data["trascrizione"])
             paragrafo = row_c.cells[1].add_paragraph(testo)
             run = paragrafo.runs[0]
@@ -220,42 +272,30 @@ def genera_report_finale(storico, uploaded_files=None):
             paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
             for cell in row_t.cells:
-                remove_internal_borders(cell, bottom=True) # Rimuove la riga tra Titolo e Contenuto
+                remove_internal_borders(cell, bottom=True)
 
             for cell in row_c.cells:
-                remove_internal_borders(cell, top=True) # Rimuove la riga tra Titolo e Contenuto
+                remove_internal_borders(cell, top=True)
                 
-            
-            # --- PUNTI CRITICI: NUMERAZIONE E SPAZIATURA ---
             for i, p in enumerate(punti_totali, start=1):
-
                 key_punto = f"edit_punto_{idx}_{i}"
                 testo_da_scrivere = st.session_state.edits.get(key_punto, p.get('commento', ''))
                 testo_finale = f"{i}. {testo_da_scrivere}"
                 
-                # Creiamo il paragrafo
                 p_punto = row_c.cells[1].add_paragraph(testo_finale)
-                
-                # 1. Rientro (simulazione TAB)
                 p_punto.paragraph_format.left_indent = Inches(0.2)
-                
-                # 2. Spaziatura tra i punti
                 p_punto.paragraph_format.space_before = Pt(font_size) 
                 
-                # 3. Spazio extra per il primo elemento
                 if i == 1:
                     p_punto.paragraph_format.space_before = Pt(24)
                 
-                # Applichiamo font e dimensione
                 run_p = p_punto.runs[0]
                 run_p.font.name = font_name
                 run_p.font.size = Pt(font_size)
             
-        # 4. Spostamento XML e pulizia
         table_element = table._tbl
         p_element.addprevious(table_element)
         p_element.getparent().remove(p_element)
-
 
     bio = io.BytesIO()
     doc.save(bio)

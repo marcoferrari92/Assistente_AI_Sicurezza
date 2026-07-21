@@ -164,14 +164,15 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
             istruzione = f"""
             Trascrizione: {transcript.text}
             
-            Riassumi l'analisi sul personale presente ed eventuali autorizzazioni in modo conciso ma esaustivo.
+            Estrai il personale presente in cantiere menzionato nella trascrizione. 
+            Per ogni persona trovata, scrivi una riga nel formato: Nome Cognome - Azienda di appartenenza.
             
             REGOLE:
             - Usa un linguaggio tecnico, professionale e formale. 
-            - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se è breve, devi essere breve. 
-            - NON AGGIUNGERE NESSUNA INFORMAZIONE NON PRESENTE NELLA TRASCRIZIONE.
+            - NON INVENTARE, ATTIENITI ALLA TRASCRIZIONE. Se non viene menzionata l'azienda, scrivi il nome seguito da "- Non specificata".
+            - Restituisci un elenco riga per riga (ogni persona sulla sua riga).
             - Vietato inserire prefissi come "Personale:" o etichette simili.
-            - Inizia direttamente a scrivere il contenuto.
+            - Inizia direttamente a scrivere il contenuto della prima riga.
             """
             
         elif nome_campo == "verbali":

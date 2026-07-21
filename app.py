@@ -597,7 +597,7 @@ if utente_connesso:
         with st.expander("🛠️ Attività e Personale", expanded=True):
             widget_campo_tecnico("attività", "Attività di Cantiere", "rec_attivita", "last_attivita_hash")
             #widget_campo_tecnico("coordinamento", "Coordinamento", "rec_coord", "last_coord_hash")
-            #widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
+            widget_campo_tecnico("personale", "Personale Presente", "rec_personale", "last_personale_hash")
             #widget_campo_tecnico("verbali", "Verbali di Prescrizione/Sospensione", "rec_verbali", "last_verb_hash")
             widget_campo_tecnico("prescrizioni", "Prescrizioni", "rec_presc", "last_coord_hash")
 
