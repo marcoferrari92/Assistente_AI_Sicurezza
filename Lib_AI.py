@@ -192,13 +192,18 @@ def elabora_campo_tecnico_ai(audio_bytes, nome_campo):
         else:
             istruzione = f"Trascrizione: {transcript.text}. Redigi un resoconto tecnico discorsivo."
 
+        # Scegliamo un system prompt dinamico o più flessibile
+        system_content = "Sei un tecnico della sicurezza. Scrivi solo il testo richiesto. Vietato inserire etichette o prefissi all'inizio della risposta."
+        if nome_campo == "personale":
+            system_content = "Sei un tecnico della sicurezza. Estrai il personale elencandolo riga per riga nel formato Nome - Azienda. Vietato inserire prefissi."
+
         # CHIAMATA API
         resp = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
                     "role": "system", 
-                    "content": "Sei un tecnico della sicurezza. Scrivi solo testo discorsivo narrativo. Vietato usare elenchi, trattini, etichette o prefissi all'inizio della risposta."
+                    "content": system_content
                 },
                 {"role": "user", "content": istruzione}
             ]
